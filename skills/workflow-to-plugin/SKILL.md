@@ -19,6 +19,27 @@ re-explained forever. The human never touches git; you do all of it.
 If the user can't or won't supply one of the three, say what's missing and stop — shipping
 without it creates support burden that lands on them later.
 
+## Pre-flight — GitHub access (always run this first)
+
+Packaging ends at GitHub, so confirm access before any other work — discovering a missing
+login at publish time wastes the whole session. Assume the user may be brand new to all of
+this; do every step yourself and narrate in plain English. Run the ladder top to bottom:
+
+1. **Check:** run `gh auth status`. Signed in → say so in one line and move on to Step 0.
+2. **Installed but not signed in** → run `gh auth login` (browser flow) and guide them
+   through the clicks. They sign in with their OWN account.
+3. **`gh` not installed** → install it yourself. If the machine has no admin rights, never
+   use Homebrew or installers that ask for a password — download the standalone `gh` release
+   binary into `~/bin` and make sure `~/bin` is on PATH.
+4. **No GitHub account at all** → walk them through creating a free one, click by click
+   (github.com → Sign up → their own email). Then return to rung 2.
+
+Never proceed on someone else's credentials — publishing THEIR workflow requires THEIR
+account, and a borrowed login means the wrong person owns the repo, the issues, and the
+update keys forever. If this kit's doctor script is available (`scripts/doctor.sh` in the
+plugin folder), run it after the ladder and loop until it prints READY — it also verifies
+git and the Claude Code CLI.
+
 ## Step 0 — Identify and qualify the workflow
 
 Find what's actually being packaged: an existing skill directory, a set of scripts, or a
