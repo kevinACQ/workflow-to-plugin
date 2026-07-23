@@ -1,0 +1,12 @@
+{
+  "name": "workflow-to-plugin-marketplace",
+  "description": "Marketplace for the Workflow → Plugin kit — package any workflow into an installable Claude Code plugin.",
+  "owner": {"name": "Kevin Gong"},
+  "plugins": [
+    {
+      "name": "workflow-to-plugin",
+      "source": "./",
+      "description": "Package any workflow into a Claude Code plugin on GitHub that anyone can install with two slash commands."
+    }
+  ]
+}
