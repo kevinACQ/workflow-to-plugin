@@ -89,8 +89,9 @@ Never publish anything without showing me exactly what will be published and get
 - **Package a workflow anytime:** just say *"package my workflow"* (or *"turn this into a
   plugin"*, *"make this shareable"*). Claude runs the whole process and asks before anything
   goes public.
-- **Your published workflow** ends up as a GitHub repo with its own install and its own
-  ONBOARDING.md. To onboard someone, send them that one file. Nothing else.
+- **Your published workflow** ends up as a GitHub repo with the same one-line setup as this
+  kit. To onboard someone, send them one line: *Set me up:* followed by your repo link.
+  Nothing else.
 - **Private or public is your call:** private for company workflows, public to share with
   the world. Claude always shows you the file list before publishing.
 - **Selling it to clients?** Say *"package this for my clients."* You get a private repo, one

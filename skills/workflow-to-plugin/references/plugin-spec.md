@@ -21,8 +21,8 @@ my-workflow/
 ├── bin/                     # executables on Bash PATH (Claude Code ONLY: a top-level bin/ makes
 │                            #   claude.ai and Cowork reject the whole plugin; prefer scripts/)
 ├── scripts/                 # doctor.py / check scripts (plain files, run via skills)
-├── ONBOARDING.md            # the paste-into-Claude front door
-├── README.md                # what it does, install one-liner, owner
+├── ONBOARDING.md            # the setup the one line runs, plus the paste-in fallback box
+├── README.md                # the "Set me up:" line, the note for Claude, what it does, owner
 ├── keys.env.example         # template for user keys (real keys file gitignored)
 ├── config.example.json      # placeholder personal settings (real config.json gitignored)
 ├── .sweep-allow             # optional: strings the owner approved to appear (see sweep.sh)
@@ -81,7 +81,10 @@ This is what makes `/plugin marketplace add owner/repo` work on the plugin's own
 `git-subdir` (monorepo sparse checkout), and npm packages — relevant when one catalog repo
 lists many workflow repos.
 
-## What teammates run (put these in ONBOARDING.md and README)
+## What teammates run
+
+The front door is one line pasted into Claude Code, `Set me up: https://github.com/owner/my-workflow`
+(see `onboarding-template.md`). By hand, it's these two commands (README's "Install by hand"):
 
 ```
 /plugin marketplace add owner/my-workflow
@@ -136,13 +139,17 @@ Inside a test session, `/reload-plugins` picks up edits without restarting.
 ## Paths inside plugin scripts/hooks
 
 - `${CLAUDE_PLUGIN_ROOT}` — plugin install dir. Changes on every update; never store state there.
-- `${CLAUDE_PLUGIN_DATA}` — persistent per-plugin dir (`~/.claude/plugins/data/<id>/`); use for
+- `${CLAUDE_PLUGIN_DATA}` — persistent per-plugin dir (`~/.claude/plugins/data/<plugin>-<marketplace>/`,
+  under `$CLAUDE_CONFIG_DIR` when that is set; created the first time the plugin runs); use for
   caches, downloaded models, state that must survive updates.
 - Never hardcode absolute machine paths in executing code — that's a top secret-sweep finding.
-- Both variables are filled in inside SKILL.md text (and hook/MCP configs), not in a plain Bash
-  shell. So any ONBOARDING step that saves per-user files (config, keys) goes through the
-  plugin's own skill, which shows the real path, never a bare `$CLAUDE_PLUGIN_DATA` in a shell
-  command (observed in October 2026 eval runs).
+- Both variables are filled in inside a loaded SKILL.md (and hook/MCP configs), not in a plain
+  Bash shell, and not when Claude reads a SKILL.md from disk before the plugin has loaded (the
+  one-line setup does exactly that). So any ONBOARDING step that saves per-user files (config,
+  keys) uses the real path, never a bare `$CLAUDE_PLUGIN_DATA` in a shell command (observed in
+  October 2026 eval runs): `${CLAUDE_PLUGIN_ROOT}` = the `installPath` from
+  `claude plugin list --json`, and `${CLAUDE_PLUGIN_DATA}` = the folder above. Verified on
+  Claude Code 2.1.280, October 2026.
 
 ## Updates
 

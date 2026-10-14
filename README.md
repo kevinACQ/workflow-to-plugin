@@ -48,8 +48,9 @@ When you ask Claude to package a workflow, this plugin walks it through the full
    it is exactly two commands
 4. **Checks**: a doctor script plus pass/fail checks on the workflow's output, because a
    workflow without checks is a rumor
-5. **ONBOARDING.md**: a proven paste-into-Claude setup page a non-technical person can use,
-   which also turns on automatic updates
+5. **One-line setup**: a README and ONBOARDING.md so a teammate pastes
+   `Set me up: <your repo link>` into Claude Code and Claude installs it, turns on automatic
+   updates, and sets it up. The full paste-in box stays in ONBOARDING.md as a fallback
 6. **Leak sweep (a hard gate)**: `scripts/sweep.sh` blocks publishing on secrets, your
    never-ship words, real-looking emails and phone numbers, machine paths, files over
    10 MB, recordings and transcripts, and the text inside PDFs, Office files, and zips, in
@@ -71,7 +72,8 @@ See [references/client-lane.md](skills/workflow-to-plugin/references/client-lane
 
 ## The rules (what every packaged workflow ships with)
 
-1. An **ONBOARDING.md** a non-technical person can paste into Claude — Claude does the rest.
+1. A **one-line setup** (`Set me up: <repo link>`) backed by an ONBOARDING.md, so a
+   non-technical person pastes one line into Claude and Claude does the rest.
 2. Its own **pass/fail checks** so output is known-good before a human reviews it.
 3. A **named owner** — bugs and ideas go to that repo's Issues page (tell Claude "file an
    issue about this"). The owner fixes and merges, and the fix reaches every installer on

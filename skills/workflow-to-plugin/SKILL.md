@@ -1,6 +1,6 @@
 ---
 name: workflow-to-plugin
-description: Package any workflow the user has built (skills, scripts, slash commands, or a process proven in conversation) into a Claude Code plugin repo on GitHub that anyone can install with two slash commands, or into a private client kit of claude.ai skill zips for paying clients. Use whenever the user wants to share, distribute, or sell a workflow: "package my workflow", "turn this into a plugin", "make this installable", "share this with my team", "share this with everyone at my company", "publish this so others can use it", "package this for my clients", "people keep asking how I do this", or when a team workflow catalog needs a new entry. Handles the full path: inventory, plugin scaffold with self-marketplace, paste-into-Claude ONBOARDING.md, pass/fail checks, a scripted leak sweep that blocks publishing, validation, publish, and install verification. NOT for authoring a new personal skill (use skill-creator) or for installing someone else's existing plugin.
+description: Package any workflow the user has built (skills, scripts, slash commands, or a process proven in conversation) into a Claude Code plugin repo on GitHub that anyone can install with two slash commands, or into a private client kit of claude.ai skill zips for paying clients. Use whenever the user wants to share, distribute, or sell a workflow: "package my workflow", "turn this into a plugin", "make this installable", "share this with my team", "share this with everyone at my company", "publish this so others can use it", "package this for my clients", "people keep asking how I do this", or when a team workflow catalog needs a new entry. Handles the full path: inventory, plugin scaffold with self-marketplace, a one-line "Set me up" setup backed by ONBOARDING.md, pass/fail checks, a scripted leak sweep that blocks publishing, validation, publish, and install verification. NOT for authoring a new personal skill (use skill-creator) or for installing someone else's existing plugin.
 ---
 
 # Workflow → Plugin
@@ -11,7 +11,9 @@ on their next update. The alternative is workflows dying on one laptop and being
 forever. The human never touches git; you do all of it.
 
 **Price of admission. A packaged workflow ships with all three, no exceptions:**
-1. An `ONBOARDING.md` a non-technical person can paste into Claude. Claude does the rest.
+1. A one-line setup: a non-technical person pastes `Set me up: <repo link>` into Claude Code
+   and Claude does the rest, using the README's note for Claude and the full setup in
+   `ONBOARDING.md`.
 2. Its own pass/fail checks, so output is known-good before a human reviews it. A workflow
    without checks is a rumor.
 3. A named owner, so bugs and improvements have somewhere to go (that repo's Issues page).
@@ -124,6 +126,8 @@ CLIs), API keys, and config. Then separate two categories:
   owner prefers X" rules. Never hardcoded in the engine. Move it to `config.example.json`
   (committed, placeholder values) plus a gitignored `config.json`, or to the plugin's
   `userConfig` prompt; keys go in a gitignored keys file with a committed `*.example` template.
+  Placeholders must be values nobody would really answer (`YOUR FIRST NAME`, not `Sam`): a
+  doctor that treats "same as the example" as unfilled blocks every teammate named Sam.
 
 This split is what lets others adopt the workflow without forking it: same procedure,
 different parameters. It is enforced, not advisory: the sweep's never-ship list runs over
@@ -176,14 +180,20 @@ Two layers, both required:
 The checks run before any human reviews output. That's what makes the workflow trustworthy
 when the owner isn't in the room.
 
-## Step 4: Write ONBOARDING.md
+## Step 4: Write the one-line setup (README.md and ONBOARDING.md)
 
-Read `references/onboarding-template.md` and follow that proven shape: promise → 3 human
-steps → one self-contained copy-paste block (written in the user's first person: install,
-turn on updates, doctor-gated setup, personalization interview, verified test run) →
-day-to-day usage phrases → "file an issue about this" feedback line → owner line. If the
-audience may lack admin rights, the no-admin fallback (standalone binaries to `~/bin`,
-`pip install --user`) goes in the block.
+Read `references/onboarding-template.md` and write both files from that proven shape. The
+front door is one line, `Set me up: https://github.com/<owner>/<repo>`, in both files.
+README.md (what the link opens): promise → the one line → a short "For Claude:" note that
+installs the plugin, then reads ONBOARDING.md from the install folder and carries out its box
+(skills installed mid-session only load after a restart) → install by hand → owner line.
+ONBOARDING.md: promise → 3 human steps, where step 2 is pasting the one line → the full
+copy-paste block as the fallback (written in the user's first person: install, turn on
+updates, doctor-gated setup, personalization interview, verified test run) → day-to-day
+usage phrases → "file an issue about this" feedback line → owner line. If the audience may
+lack admin rights, the no-admin fallback (standalone binaries to `~/bin`,
+`pip install --user`) goes in the block. Private repo: name who to ask for access in the
+README note, ONBOARDING, and the Step 8 share message.
 
 The "turn on updates" step tells the installer's Claude to edit `~/.claude/settings.json`, so
 a permission check may stop it, or stop you from writing it. That's expected, not a reason to
@@ -192,7 +202,8 @@ select the marketplace → Enable auto-update).
 
 Kits installed with `git clone` (not `/plugin install`) never auto-update: their KEEP IT
 UPDATED step is "run `git pull` in the kit folder at the start of each session, and tell me
-if it brought changes."
+if it brought changes." Their README note clones the repo into a folder instead of running
+the two install commands, then reads ONBOARDING.md from that folder.
 
 Client lane: clients never see ONBOARDING.md (it's for the owner's team). Their front door is
 `client/INSTALL-PROMPT.txt` plus the PDF guide, built from `templates/client/`.
@@ -285,10 +296,13 @@ whole company right after the security scan.
 
 ## Step 8: Hand back the share kit
 
-Teammates or public: give the user, in one copyable block, the two install commands, a
-one-paragraph announcement ("what it does / say this to Claude / where bugs go"), and, if
-their team keeps a workflow catalog, a ready-to-submit catalog row and an offer to open that
-PR. Onboarding someone later = send them ONBOARDING.md, nothing else.
+Teammates or public: give the user, in one copyable block, the one setup line
+(`Set me up: https://github.com/<owner>/<repo>`), a one-paragraph announcement ("what it does
+/ paste this line into Claude Code / where bugs go"), the two install commands for anyone who'd
+rather do it by hand, and, if their team keeps a workflow catalog, a ready-to-submit catalog
+row and an offer to open that PR. Private repo: the announcement also says who to ask for
+access, because someone without access can't open the README or ONBOARDING to find out.
+Onboarding someone later = send them the one line, nothing else.
 
 Paying clients: give the user the filled `client/INSTALL-PROMPT.txt` text in one copyable
 block. That text is everything a client receives.
