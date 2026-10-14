@@ -69,6 +69,14 @@ For teammates or the public, also ask: technical or not, and do their machines h
 rights? That shapes the ONBOARDING.md. Clients use claude.ai, not Claude Code or GitHub, and
 only skills transfer there; the client lane covers what that rules out.
 
+**Already packaged?** If the workflow is already a plugin or a shared kit (it has
+`.claude-plugin/`, an ONBOARDING.md, or teammates get it with `git clone`), don't rebuild it.
+Keep its layout and run Steps 1-6 as an audit. Note two facts now, because later steps depend
+on them: where each plugin lives (every `source` in `.claude-plugin/marketplace.json`; older
+kits use `./plugins/<name>`), and how teammates install it (`/plugin install`, or a `git clone`
+folder with a CLAUDE.md). Also ask: **"Is this a copy of someone else's public repo?"** If yes,
+fixes sent back to it are public releases (see the maintenance loop).
+
 ## Step 1: Inventory, the engine/personal split, and the never-ship list
 
 List everything the workflow needs: files, scripts, skills/commands, external tools (ffmpeg,
@@ -91,6 +99,13 @@ Make it a two-minute job for the owner: search the workflow's files for candidat
 and product names, people's names, emails, internal IDs, internal domains, table and field
 names), propose them as one list to confirm, and ask what you missed. The list is reused for
 every future package, so it only gets filled once. The sweep refuses to pass while it's empty.
+
+Recordings are the leak this list can't cover. Guests, callers, and customers in the
+recordings a workflow processed can't be listed ahead of time, and speech-to-text output has one
+word per line, so no name, email, or phone check sees inside it. Never commit a transcript, a
+subtitle file, or speech-to-text output, not even "for testing", and don't paste a real guest's
+lines into SKILL.md examples. The sweep blocks transcripts by their shape (check 8). A fictional
+test transcript is approved with a `file:<path>` line in `.sweep-allow`.
 
 ## Step 2: Scaffold the plugin repo
 
@@ -136,6 +151,10 @@ a permission check may stop it, or stop you from writing it. That's expected, no
 route around it: tell the user, and use the click path instead (`/plugin` → Marketplaces →
 select the marketplace → Enable auto-update).
 
+Kits installed with `git clone` (not `/plugin install`) never auto-update: their KEEP IT
+UPDATED step is "run `git pull` in the kit folder at the start of each session, and tell me
+if it brought changes."
+
 Client lane: clients never see ONBOARDING.md (it's for the owner's team). Their front door is
 `client/INSTALL-PROMPT.txt` plus the PDF guide, built from `templates/client/`.
 
@@ -150,7 +169,8 @@ bash <kit>/scripts/sweep.sh --for <team|public|client> <repo-dir>
 It checks everything the audience can see (current files, every past commit, commit
 messages, file names, and for public repos the commit author emails) for: secrets
 (gitleaks), never-ship words, real-looking emails and phone numbers, absolute machine paths,
-and files over 10 MB. Nothing is pushed, zipped, or uploaded until it prints `SWEEP: PASS`.
+files over 10 MB, recordings and transcripts, and the text inside PDFs, Office files, zips,
+and media tags. Nothing is pushed, zipped, or uploaded until it prints `SWEEP: PASS`.
 
 - **A FAIL is a hard stop, not a judgment call.** Fix the cause: move the value to the
   personalization layer, replace real people with fictional ones, or gitignore the file.
@@ -163,24 +183,31 @@ and files over 10 MB. Nothing is pushed, zipped, or uploaded until it prints `SW
 - **A real key or password that ever sat in the workflow's files or history** gets rotated:
   tell the owner to make a new one and revoke the old one, even if it was never pushed. Leave
   their original folder as it is; never publish from it.
-- **Binary files** (PDFs, images) are listed, not text-scanned. Open each one once, and keep
-  every shipped PDF's source text in the repo so the sweep can read it.
+- **Binary documents:** the sweep reads the text inside PDFs, Office files, zips, and media
+  tags. One it can't read blocks a public or client release until the owner opens it and
+  approves it with a `file:<path>` line in `.sweep-allow`. Images are listed: open each once.
+- **Data files:** color LUTs (`.cube`, `.3dl`) skip the email, phone, and path checks. Any
+  other file with over 200 hits on one check is reported once. Open it; if it's data, approve
+  it with `file:<path>`.
 - **If the sweep can't run** (gitleaks missing, not a git repo), fix that. Never skip the gate.
 
 ## Step 6: Validate locally (both paths)
 
-Both commands must pass:
+Find each plugin folder first: it's the `source` of each entry in
+`.claude-plugin/marketplace.json` (`"./"` means the repo itself; older kits use
+`./plugins/<name>`). Both commands must pass, the second once per plugin folder:
 
 ```bash
-claude plugin validate <repo-dir> --strict                              # marketplace.json
-claude plugin validate <repo-dir>/.claude-plugin/plugin.json --strict   # plugin.json + every SKILL.md
+claude plugin validate <repo-dir> --strict                                       # marketplace.json
+claude plugin validate <repo-dir>/<source>/.claude-plugin/plugin.json --strict   # plugin.json + every SKILL.md
 ```
 
-On a repo that is both plugin and marketplace (the default shape), the first command checks
-only marketplace.json: a skill with no description still passes it. The second command is
-the one that checks the skills. Then smoke-test with `claude --plugin-dir <repo-dir>`: confirm
-the skills load under the plugin namespace and the doctor script runs. Fix and re-validate
-until clean. Never publish a plugin you haven't loaded.
+The first command checks only marketplace.json: a skill with no description still passes it.
+The second is the one that checks the skills. Pointing it at a folder without a
+`.claude-plugin/plugin.json` fails with "File not found". Then smoke-test with
+`claude --plugin-dir <repo-dir>/<source>`: confirm the skill count matches the plugin's
+`skills/` folders (pointed at the wrong folder it loads zero skills with no error) and the
+doctor script runs. Fix and re-validate until clean. Never publish a plugin you haven't loaded.
 
 Client lane: also run `scripts/build_client_zips.sh` then `scripts/check_kit.sh` until it
 prints ALL CHECKS GREEN (see `references/client-lane.md` for the allowed pre-upload warnings).
@@ -221,6 +248,10 @@ block. That text is everything a client receives.
   `claude plugin update <plugin>@<marketplace>` or `/plugin` → Installed → Update now.
 - Client kits: rebuild, check, and upload each changed zip as a new version of the SAME file,
   so links already sent keep working (`references/client-lane.md`).
+- **A team copy of someone's public repo:** every fix sent back to the public repo is a
+  public release. Copy only the outgoing change into a fresh folder, `git init` it, and run
+  `sweep.sh --for public` on it before opening the pull request. Removing a file from the team
+  copy doesn't remove it from the public repo it came from, or from that repo's history.
 - Improvements from users arrive as PRs; profiles/configs let people personalize without
   forking the engine. If someone edits the engine to encode a personal preference, that's
   the signal a config option is missing.

@@ -34,8 +34,9 @@ When you ask Claude to package a workflow, this plugin walks it through the full
 5. **ONBOARDING.md**: a proven paste-into-Claude setup page a non-technical person can use,
    which also turns on automatic updates
 6. **Leak sweep (a hard gate)**: `scripts/sweep.sh` blocks publishing on secrets, your
-   never-ship words, real-looking emails and phone numbers, machine paths, and files over
-   10 MB, in current files and in git history
+   never-ship words, real-looking emails and phone numbers, machine paths, files over
+   10 MB, recordings and transcripts, and the text inside PDFs, Office files, and zips, in
+   current files and in git history
 7. **Validate**: both `claude plugin validate` paths, because checking the repo folder alone
    never looks at the skills
 8. **Publish & verify**: create the repo (private or public, your call), push, and prove

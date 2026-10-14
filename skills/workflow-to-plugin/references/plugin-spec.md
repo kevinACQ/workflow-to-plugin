@@ -105,6 +105,11 @@ claude plugin validate ./my-workflow/.claude-plugin/plugin.json --strict   # plu
 claude --plugin-dir ./my-workflow                                          # load into a live session without installing
 ```
 
+If marketplace.json lists `"source": "./plugins/<name>"` instead of `"./"` (older and
+multi-plugin kits), put `plugins/<name>/` in place of `./my-workflow/` in the last two
+commands. At the repo root they fail with "File not found" (validate) or load zero skills with
+no error (`--plugin-dir`). Verified on Claude Code 2.1.280, October 2026.
+
 Why both: when a repo has `.claude-plugin/marketplace.json` (the default shape here), pointing
 `validate` at the repo folder validates the marketplace manifest and stops. It never opens the
 skills, so a skill with no description prints "Validation passed". Pointing it at

@@ -126,6 +126,40 @@ else
   printf '  ok    %-62s only the first 4 characters print\n' "  ...and the matched text stays hidden"
 fi
 
+d="$(fresh)"; printf 're:\\btok_[A-Za-z0-9]{20}\\b\n' > "$TMP/never-ship-b.txt"; printf 'ID = "%s"\n' "$tok" > "$d/ids.py"
+expect "re: pattern using \\b still matches (no silent miss) -> FAIL" FAIL '^\[FAIL\] 2\.' public --denylist "$TMP/never-ship-b.txt"
+
+# --- Transcripts and documents (word-timing JSON has one word per line: no name check sees it).
+words_json() { # words_json N -> speech-to-text style JSON, one word per line, fictional words
+  printf '{\n  "words": [\n'; local i=0
+  while [ "$i" -lt "$1" ]; do printf '    {"word": "w%s", "start": %s.0, "end": %s.5},\n' "$i" "$i" "$i"; i=$((i + 1)); done
+  printf '    {"word": "end", "start": 0.0, "end": 0.1}\n  ]\n}\n'
+}
+d="$(fresh)"; words_json 60 > "$d/skills/hello/--out"
+expect "speech-to-text JSON named --out -> FAIL (check 8)" FAIL '^\[FAIL\] 8\.' public
+expect "  ...and in a team repo too" FAIL '^\[FAIL\] 8\.' team
+d="$(fresh)"; mkdir -p "$d/tests"; words_json 60 > "$d/tests/fictional_words.json"
+expect "transcript-shaped fixture, not approved -> FAIL (check 8)" FAIL '^\[FAIL\] 8\.' public
+printf 'file:tests/fictional_words.json\n' > "$d/.sweep-allow"
+expect "same fixture approved with file:<path> -> PASS" PASS 'SWEEP: PASS' public
+d="$(fresh)"; printf '1\n00:00:01,000 --> 00:00:02,000\nHello\n' > "$d/skills/hello/clip.srt"
+expect "subtitle file -> FAIL (check 8)" FAIL 'subtitle file' public
+
+d="$(fresh)"; printf 'Notes from the Fernhollow Supply call.\n' > "$TMP/notes.txt"; (cd "$TMP" && zip -q "$d/notes.zip" notes.txt)
+expect "never-ship name inside a zip -> FAIL (check 9)" FAIL '^\[FAIL\] 9\.' public
+d="$(fresh)"; printf 'not really a 7z archive\n' > "$d/archive.7z"
+expect "document no tool can read, public -> FAIL (check 9c)" FAIL '^\[FAIL\] 9c\.' public
+expect "  ...same document in a team repo -> PASS + WARN" PASS '^\[WARN\] 9c\.' team
+
+d="$(fresh)"; { printf 'LUT_3D_SIZE 2\n'; i=0; while [ "$i" -lt 300 ]; do printf '240 %s 3485\n' "$((100 + i))"; i=$((i + 1)); done; } > "$d/grade.cube"
+expect "color LUT full of phone-shaped numbers -> PASS" PASS 'SWEEP: PASS' public
+
+d="$(fresh)"; mkdir -p "$d/tests"; { printf 'name,email,phone\n'; i=0; while [ "$i" -lt 300 ]; do printf 'Member %s,member%s@example.com,(312) 555-01%02d\n' "$i" "$i" "$((i % 100))"; i=$((i + 1)); done; } > "$d/tests/members.csv"
+expect "300-row fictional fixture (example.com, 555-01xx) -> PASS" PASS 'SWEEP: PASS' public
+
+d="$(fresh)"; base="$(basename "$d")"; printf 'MODEL = os.path.expanduser("~/Documents/%s/models/face.onnx")\n' "$base" > "$d/skills/hello/run.py"
+expect "home-folder path into the kit's own folder -> PASS + WARN (5b)" PASS '^\[WARN\] 5b\.' public
+
 # --- No false alarms on fictional data, and audience rules behave.
 d="$(fresh)"; printf 'Contact: owner@example.com, tester@shop.test, (312) 555-0142, ~/bin, /Users/you/kit\n' >> "$d/README.md"
 expect "fictional email/phone/path only -> PASS" PASS 'SWEEP: PASS' public

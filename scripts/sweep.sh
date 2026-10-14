@@ -12,11 +12,15 @@
 #                  ~/.config/workflow-to-plugin/never-ship.txt). It holds the very words that
 #                  must not leak, so it lives OUTSIDE the repo. Missing or empty list = FAIL.
 #   --allow        strings approved to appear in this repo (default: REPO_DIR/.sweep-allow).
+#                  A "file:<path>" line approves one whole file for checks 3-5, 8 and 9 after
+#                  the owner has looked at it (a fictional test transcript, a numeric data table).
 #
 # What it checks, on everything the audience can see (current files, every past version in
 # git history, commit messages, file names, commit author emails):
 #   1. secrets (gitleaks)   2. never-ship words   3. emails   4. phone numbers
-#   5. absolute machine paths   6. files over 10 MB   7. commit author emails (public only)
+#   5. absolute machine paths (5b warns on home-folder paths into the owner's own setup)
+#   6. files over 10 MB   7. commit author emails (public only)   8. recordings and transcripts
+#   9. text inside PDFs, Office files, zips, and media tags (unreadable documents block)
 # Exit codes: 0 PASS, 1 FAIL, 2 setup problem (not a git repo, gitleaks missing, bad option).
 set -u
 
@@ -38,7 +42,7 @@ while [ $# -gt 0 ]; do
     --denylist=*) DENYLIST="${1#--denylist=}"; shift ;;
     --allow) need_arg "$1" $#; ALLOW="$2"; shift 2 ;;
     --allow=*) ALLOW="${1#--allow=}"; shift ;;
-    -h|--help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown option: $1 (see --help)" ;;
     *) REPO="$1"; shift ;;
   esac
@@ -95,6 +99,12 @@ clean_list() { sed -e 's/\r$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$
 : > "$TMP/allow"
 [ -n "$ALLOW" ] && [ -f "$ALLOW" ] && clean_list "$ALLOW" | lower > "$TMP/allow"
 allowed() { [ -s "$TMP/allow" ] && printf '%s\n' "$1" | lower | grep -qxF -f "$TMP/allow"; }
+# "file:<path>" lines: whole files the owner has looked at and approved (case kept: paths).
+: > "$TMP/allow_files"
+[ -n "$ALLOW" ] && [ -f "$ALLOW" ] && { clean_list "$ALLOW" | sed -n 's/^file:[[:space:]]*//p' > "$TMP/allow_files"; }
+drop_allowed_files() { # drop hit lines ("path:..." or "path: ...") whose path is approved
+  if [ -s "$TMP/allow_files" ]; then awk 'NR==FNR { ok[$0]=1; next } { p=$0; sub(/:.*/, "", p) } !(p in ok)' "$TMP/allow_files" -; else cat; fi
+}
 
 # What the audience can see: current files that git would publish (tracked + new, minus
 # .gitignore'd), and every past commit.
@@ -108,18 +118,22 @@ nrevs=$(grep -c . "$TMP/revs" || true)
 if [ "$MODE" = public ]; then HIST_SEV=FAIL; else HIST_SEV=WARN; fi
 
 # Binary documents (PDFs, images, archives, media, Office files) look like text to git but are
-# compressed bytes: text checks skip them (gitleaks still looks inside zips) and they are listed
-# at the end for a one-time look by eye. Keep each shipped PDF's source text in the repo.
+# compressed bytes: the plain-text checks skip them. Check 9 pulls the text out of the ones it
+# can read; the rest are listed at the end. Keep each shipped PDF's source text in the repo.
 BIN_EXT="pdf png jpg jpeg gif webp ico heic psd zip gz tgz bz2 7z rar mp4 mov m4v mp3 m4a wav aac woff woff2 ttf otf eot docx xlsx pptx key pages numbers sqlite db"
 SPEC=(.)
 for x in $BIN_EXT; do SPEC+=(":(exclude,icase)*.$x"); done
 is_bin_ext() { local e; e="$(printf '%s' "${1##*.}" | lower)"; case " $BIN_EXT " in *" $e "*) return 0 ;; esac; return 1; }
+# Numeric data tables (color LUTs) are rows of 3-4 digit numbers: thousands of fake "phone
+# numbers" and no place for a real one. Checks 3-5 skip them; checks 1 and 2 still read them.
+DATA_EXT="3dl cube lut csp"
+XSPEC=()
 
-tree_grep() { g grep --untracked -I -n -o "$@" -- "${SPEC[@]}" 2>/dev/null || true; }   # path:line:match
+tree_grep() { g grep --untracked -I -n -o "$@" -- "${SPEC[@]}" ${XSPEC[@]+"${XSPEC[@]}"} 2>/dev/null || true; }   # path:line:match
 hist_grep() {                                                               # path: match (in <sha>)
   [ "$nrevs" -gt 0 ] || return 0
   # shellcheck disable=SC2046  # one argument per commit is intended
-  git -C "$REPO" grep -I -o "$@" $(cat "$TMP/revs") -- "${SPEC[@]}" 2>/dev/null \
+  git -C "$REPO" grep -I -o "$@" $(cat "$TMP/revs") -- "${SPEC[@]}" ${XSPEC[@]+"${XSPEC[@]}"} 2>/dev/null \
     | awk -F: '{ sha=substr($1,1,7); path=$2; m=$0; sub(/^[^:]*:[^:]*:/, "", m); k=path SUBSEP m; if (!(k in seen)) { seen[k]=1; print path ": " m "  (in past commit " sha ")" } }' || true
 }
 
@@ -161,6 +175,14 @@ else
     case "$t" in *" "*) printf '%s\n' "$t" | tr ' ' '-'; printf '%s\n' "$t" | tr ' ' '_'; printf '%s\n' "$t" | tr -d ' ' ;; esac
   done | sort -u > "$TMP/terms_raw"
   grep '^re:' "$TMP/deny_all" | sed 's/^re:[[:space:]]*//' > "$TMP/regexes" || true
+  # git's -E grep silently ignores \b, \d, \w and \s on macOS (the pattern then matches nothing).
+  # Patterns that use them run with -P (Perl syntax) instead; if this git can't, the sweep stops.
+  RE_FLAG=-E
+  if grep -q '\\[bBdDwWsS]' "$TMP/regexes" 2>/dev/null; then
+    g grep -q -P -e x -- .sweep-pcre-probe >/dev/null 2>&1
+    if [ $? -le 1 ]; then RE_FLAG=-P
+    else echo "a re: pattern uses \\b, \\d, \\w or \\s, which this computer's git can't read. Rewrite it with [0-9], [A-Za-z0-9_] or [[:space:]]." >> "$TMP/deny_fail"; fi
+  fi
   if [ -s "$TMP/allow" ]; then grep -vixF -f "$TMP/allow" "$TMP/terms_raw" > "$TMP/terms" || true; else cp "$TMP/terms_raw" "$TMP/terms"; fi
   denyabs="$(cd "$(dirname "$DENYLIST")" && pwd -P)/$(basename "$DENYLIST")"
   case "$denyabs" in
@@ -178,8 +200,8 @@ else
     m = $0; for (i = 0; i < n; i++) sub(/^[^:]*:/, "", m); sub(/^ /, "", m)
     pre = substr($0, 1, length($0) - length(m)); if (length(m) > 6) m = substr(m, 1, 4) "...(" length(m) " chars, hidden)"
     print pre m suf }'; }
-  deny_tree() { [ -s "$TMP/terms" ] && tree_grep -F -i -w -f "$TMP/terms"; [ -s "$TMP/regexes" ] && tree_grep -E -i -f "$TMP/regexes" | hide 2; true; }
-  deny_hist() { [ -s "$TMP/terms" ] && hist_grep -F -i -w -f "$TMP/terms"; [ -s "$TMP/regexes" ] && hist_grep -E -i -f "$TMP/regexes" | hide 1; true; }
+  deny_tree() { [ -s "$TMP/terms" ] && tree_grep -F -i -w -f "$TMP/terms"; [ -s "$TMP/regexes" ] && tree_grep "$RE_FLAG" -i -f "$TMP/regexes" | hide 2; true; }
+  deny_hist() { [ -s "$TMP/terms" ] && hist_grep -F -i -w -f "$TMP/terms"; [ -s "$TMP/regexes" ] && hist_grep "$RE_FLAG" -i -f "$TMP/regexes" | hide 1; true; }
   deny_names() { # file names (current and past) that contain a never-ship word
     { cat "$TMP/files"; [ "$nrevs" -gt 0 ] && g log --all --format= --name-only 2>/dev/null; } | grep -v '^$' | sort -u > "$TMP/allnames"
     { [ -s "$TMP/terms" ] && grep -iwF -f "$TMP/terms" "$TMP/allnames"; [ -s "$TMP/regexes" ] && grep -iE -f "$TMP/regexes" "$TMP/allnames"; true; } | sort -u | sed 's/$/  (file name)/'
@@ -253,9 +275,28 @@ filter_hits() { # filter_hits CHECKER < hits ; hit lines end in the matched text
     "$fn" "$m" || printf '%s\n' "$line"
   done
 }
+# Fast pass before counting: drop the reserved fictional forms (the full rules still run after),
+# so a big fixture of example.com emails or 555-01xx phones is never mistaken for data.
+EMAIL_SAFE='(@([A-Za-z0-9-]+\.)*(example\.(com|org|net)|test|example|invalid|localhost|users\.noreply\.github\.com)|(^|[^A-Za-z0-9._%+-])(noreply|no-reply|git)@[^ ]*)(  \(in past commit [0-9a-f]+\))?$'
+PHONE_SAFE='555[ .-]?01[0-9]{2}([^0-9]|$)'
+prefilter() { # prefilter CHECKER < hits
+  case "$1" in
+    email_ok) grep -v -i -E -e "$EMAIL_SAFE" || true ;;
+    phone_ok) grep -v -E -e "$PHONE_SAFE" || true ;;
+    *) cat ;;
+  esac
+}
+CAP=200   # a file with more hits than this on one check is reported once, as one finding
+collapse() { # one summary line for any file over CAP hits: fast, and a data file is one finding
+  awk -v cap="$CAP" '{ p=$0; sub(/:.*/, "", p); n[p]++; L[NR]=$0; P[NR]=p }
+    END { for (i = 1; i <= NR; i++) if (n[P[i]] <= cap) print L[i]; else if (!(P[i] in s)) { s[P[i]] = 1
+      print P[i] ": " n[P[i]] " matches, too many to list (open it; then remove it, or approve it with file:" P[i] " in .sweep-allow)" } }'
+}
 scan_pattern() { # scan_pattern REGEX CHECKER TITLE  -> FAIL for current files, history per mode
-  tree_grep -E -e "$1" | filter_hits "$2" > "$TMP/hit_tree"
-  hist_grep -E -e "$1" | filter_hits "$2" > "$TMP/hit_hist"
+  XSPEC=(); for x in $DATA_EXT; do XSPEC+=(":(exclude,icase)*.$x"); done
+  tree_grep -E -e "$1" | drop_allowed_files | prefilter "$2" | collapse | filter_hits "$2" > "$TMP/hit_tree"
+  hist_grep -E -e "$1" | drop_allowed_files | prefilter "$2" | collapse | filter_hits "$2" > "$TMP/hit_hist"
+  XSPEC=()
   if [ "$HIST_SEV" = FAIL ]; then
     cat "$TMP/hit_hist" >> "$TMP/hit_tree"
     report FAIL "$3 (files and history)" "$TMP/hit_tree"
@@ -272,6 +313,16 @@ scan_pattern "$EMAIL_RE" email_ok "3. Real-looking email addresses"
 scan_pattern "$PHONE_RE" phone_ok "4. Real-looking phone numbers"
 # 5. Absolute machine paths (they leak usernames and break on everyone else's computer).
 scan_pattern "$PATH_RE" path_ok "5. Absolute machine paths (/Users/<name>, /home/<name>)"
+# 5b. Home-folder paths in code that point into the owner's own setup (~/Documents/<this kit>,
+#     ~/.claude/skills): they leak no username but only work on the owner's computer. Warn only.
+#     Comment lines and dot-folders (~/.config/<kit>, ~/.cache/<kit>: per-user settings) are fine.
+kitnames="$( { basename "$REPO"; cat "$REPO"/.claude-plugin/*.json "$REPO"/plugins/*/.claude-plugin/plugin.json 2>/dev/null \
+  | sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'; } | sort -u | sed 's/[][\.*^$()+?{}|]/\\&/g' | paste -sd'|' -)"
+HOMEDIR_RE="(~|\\\$HOME|\\\$\\{HOME\\}|Path\\.home\\(\\)|os\\.homedir\\(\\))"
+HOME_RE="${HOMEDIR_RE}.{0,40}\\.claude/skills|${HOMEDIR_RE}(/[^./\"' ][^/\"']*)*/($kitnames)(/|[\"']|\$)"
+g grep --untracked -I -n -E -e "$HOME_RE" -- '*.py' '*.sh' '*.bash' '*.zsh' '*.js' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.rb' '*.json' 2>/dev/null \
+  | awk '{ c=$0; sub(/^[^:]*:[^:]*:/, "", c) } c !~ /^[[:space:]]*(#|\/\/)/' | drop_allowed_files | cut -c1-160 > "$TMP/homepaths" || true
+report WARN "5b. Home-folder paths into the owner's own setup (work only on the owner's computer)" "$TMP/homepaths"
 
 # ---------------------------------------------------------------------------------------
 # 6. Files over 10 MB, now and in history (renders, models, exports, node_modules).
@@ -296,14 +347,96 @@ if [ "$MODE" = public ] && [ "$nrevs" -gt 0 ]; then
   report FAIL "7. Commit author emails" "$TMP/authors"
 fi
 
-# Binary files can't be text-scanned. List them so a human looks once.
-: > "$TMP/bin"
+# ---------------------------------------------------------------------------------------
+# 8. Recordings and transcripts. A kit never needs a real conversation in it: raw speech-to-text
+#    output, subtitles, and speaker-labelled logs are how a guest's words leak. Word-timing JSON
+#    has one word per line, so no name, email, or phone check can see inside it. Flags subtitle
+#    files, files named like a stray command-line flag, and text files with TRANSCRIPT_MIN+
+#    timed lines. Fictional fixtures: approve the file with file:<path> in .sweep-allow.
+TRANSCRIPT_MIN=50
+TS_RE='"(start|end|start_time|end_time|timestamp)"[[:space:]]*:[[:space:]]*[0-9]|^[[:space:]]*[0-9]{1,2}:[0-9]{2}:[0-9]{2}[,.][0-9]{3}[[:space:]]+-->|^[[:space:]]*\[?[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\]?[[:space:]]+[A-Za-z][A-Za-z .]{0,30}:'
+rec_names() { # rec_names SUFFIX < paths
+  awk -v suf="$1" '{ n=$0; sub(/.*\//, "", n); low=tolower(n)
+    if (n ~ /^-/) print $0 ": file name starts with \"-\" (a command-line flag became a file)" suf
+    else if (low ~ /\.(srt|vtt|ass|ssa|sbv|ttml)$/) print $0 ": subtitle file" suf }'
+}
+{ rec_names "" < "$TMP/files"
+  g grep --untracked -I -c -E -e "$TS_RE" -- "${SPEC[@]}" 2>/dev/null \
+    | awk -F: -v min="$TRANSCRIPT_MIN" '$NF+0 >= min { n=$NF; p=$0; sub(/:[0-9]+$/, "", p); print p ": " n " timed lines, looks like a transcript" }'
+} | drop_allowed_files > "$TMP/rec_tree"
+: > "$TMP/rec_hist"
+if [ "$nrevs" -gt 0 ]; then
+  { g log --all --format= --name-only 2>/dev/null | grep -v '^$' | sort -u | grep -vxF -f "$TMP/files" | rec_names "  (in history)"
+    # shellcheck disable=SC2046  # one argument per commit is intended
+    git -C "$REPO" grep -I -c -E -e "$TS_RE" $(cat "$TMP/revs") -- "${SPEC[@]}" 2>/dev/null \
+      | awk -F: -v min="$TRANSCRIPT_MIN" '$NF+0 >= min { sha=substr($1,1,7); n=$NF; p=$0; sub(/^[^:]*:/, "", p); sub(/:[0-9]+$/, "", p)
+          if (!(p in seen)) { seen[p]=1; print p ": " n " timed lines, looks like a transcript  (in past commit " sha ")" } }' \
+      | grep -vF -f <(sed 's/:.*//' "$TMP/rec_tree"; echo '//no-such-path//')
+  } | drop_allowed_files > "$TMP/rec_hist"
+fi
+if [ "$HIST_SEV" = FAIL ]; then
+  cat "$TMP/rec_hist" >> "$TMP/rec_tree"; report FAIL "8. Recordings and transcripts (files and history)" "$TMP/rec_tree"
+else
+  report FAIL "8. Recordings and transcripts (current files)" "$TMP/rec_tree"
+  report WARN "8. Recordings and transcripts (past versions; private repo)" "$TMP/rec_hist"
+fi
+
+# ---------------------------------------------------------------------------------------
+# 9. Text inside binary documents. PDFs, Office files, zips, and media tags can carry the same
+#    names, emails, and transcripts as text files, so their text is pulled out and checked.
+#    A document no tool here can read blocks a public or client release until the owner opens
+#    it and approves it with file:<path> in .sweep-allow. Images and fonts are listed for a look.
+DOC_EXT="pdf zip gz tgz bz2 7z rar mp4 mov m4v mp3 m4a wav aac docx xlsx pptx odt ods odp key pages numbers sqlite db"
+is_doc_ext() { local e; e="$(printf '%s' "${1##*.}" | lower)"; case " $DOC_EXT " in *" $e "*) return 0 ;; esac; return 1; }
+extract_text() { # extract_text FILE -> its readable text on stdout; exit 1 = nothing here can read it
+  local f="$1" e; e="$(printf '%s' "${f##*.}" | lower)"
+  case "$e" in
+    pdf)
+      if command -v pdftotext >/dev/null 2>&1; then pdftotext -q "$f" - 2>/dev/null
+      elif command -v osascript >/dev/null 2>&1; then
+        osascript -l JavaScript -e 'function run(a) { ObjC.import("PDFKit"); var d = $.PDFDocument.alloc.initWithURL($.NSURL.fileURLWithPath(a[0])); return d.isNil() ? "" : ObjC.unwrap(d.string) }' "$f" 2>/dev/null
+      else return 1; fi ;;
+    docx|xlsx|pptx|odt|ods|odp) unzip -p "$f" '*.xml' 2>/dev/null | sed -e 's/<[^>]*>/ /g' ;;
+    zip) unzip -p "$f" 2>/dev/null | LC_ALL=C tr -c '[:print:]\t\n' '\n' ;;
+    gz|tgz|bz2) { tar -xOf "$f" 2>/dev/null || gzip -dc "$f" 2>/dev/null || bzip2 -dc "$f" 2>/dev/null; } | LC_ALL=C tr -c '[:print:]\t\n' '\n' ;;
+    mp4|mov|m4v|mp3|m4a|wav|aac)
+      command -v ffprobe >/dev/null 2>&1 || return 1
+      ffprobe -v quiet -show_entries format_tags:stream_tags:stream=codec_type -of default=nw=1 "$f" 2>/dev/null ;;
+    sqlite|db) command -v sqlite3 >/dev/null 2>&1 || return 1; sqlite3 "$f" .dump 2>/dev/null ;;
+    *) return 1 ;;
+  esac
+}
+: > "$TMP/inbin_fail"; : > "$TMP/inbin_warn"; : > "$TMP/unread"; : > "$TMP/bin"
+mkdir -p "$TMP/x"; i=0
 while IFS= read -r f; do
   [ -s "$REPO/$f" ] || continue
-  if is_bin_ext "$f" || ! LC_ALL=C grep -Iq . "$REPO/$f" 2>/dev/null; then echo "$f" >> "$TMP/bin"; fi
+  if ! is_bin_ext "$f" && LC_ALL=C grep -Iq . "$REPO/$f" 2>/dev/null; then continue; fi
+  grep -qxF -- "$f" "$TMP/allow_files" && continue
+  if ! is_doc_ext "$f"; then echo "$f" >> "$TMP/bin"; continue; fi
+  i=$((i + 1)); t="$TMP/x/$i.txt"; lbl="$f (text inside)"
+  if ! extract_text "$REPO/$f" > "$t"; then echo "$f: no tool on this computer can read it" >> "$TMP/unread"; continue; fi
+  tag() { awk -v p="$lbl" '{ print p ":" $0 }'; }
+  grep -q 'codec_type=subtitle' "$t" && echo "$lbl: has a subtitle track (a transcript)" >> "$TMP/inbin_fail"
+  [ "$(grep -c -E -e "$TS_RE" "$t")" -ge "$TRANSCRIPT_MIN" ] && echo "$lbl: looks like a transcript" >> "$TMP/inbin_fail"
+  { grep -n -o -E -e "$EMAIL_RE" "$t" | tag | prefilter email_ok | collapse | filter_hits email_ok
+    grep -n -o -E -e "$PHONE_RE" "$t" | tag | prefilter phone_ok | collapse | filter_hits phone_ok
+    grep -n -o -E -e "$PATH_RE" "$t" | tag | filter_hits path_ok; } >> "$TMP/inbin_fail"
+  { [ -s "$TMP/terms" ] && grep -n -o -i -w -F -f "$TMP/terms" "$t" | tag
+    [ -s "$TMP/regexes" ] && grep -n -o -i -E -f "$TMP/regexes" "$t" | tag | hide 2; true; } > "$TMP/inbin_deny"
+  case "$MODE" in
+    public) cat "$TMP/inbin_deny" >> "$TMP/inbin_fail" ;;
+    team) cat "$TMP/inbin_deny" >> "$TMP/inbin_warn" ;;
+    client) case "$f" in skills/*|client/*) cat "$TMP/inbin_deny" >> "$TMP/inbin_fail" ;; *) cat "$TMP/inbin_deny" >> "$TMP/inbin_warn" ;; esac ;;
+  esac
 done < "$TMP/files"
+report FAIL "9. Text inside PDFs, Office files, zips, and media tags" "$TMP/inbin_fail"
+[ "$MODE" = public ] || report WARN "9b. Never-ship words inside binary files (private repo)" "$TMP/inbin_warn"
+if [ "$MODE" = team ]; then report WARN "9c. Documents no tool here could read (open each once)" "$TMP/unread"
+else report FAIL "9c. Documents no tool here could read (open each, then approve with file:<path>)" "$TMP/unread"; fi
+
+# Images, fonts, and other binaries can't be text-checked. List them so a human looks once.
 if [ -s "$TMP/bin" ]; then
-  echo "[INFO] Binary files: not text-checked (gitleaks looked inside zips). Open PDFs and images once by eye:"
+  echo "[INFO] Other binary files (images, fonts, models): not text-checked (gitleaks only looks for keys). Open each image once by eye:"
   head -n "$SHOW" "$TMP/bin" | sed 's/^/         /'
 fi
 
@@ -315,6 +448,7 @@ fi
 echo "SWEEP: FAIL ($MODE). $blocking blocking check(s), $warnings warning(s). Do NOT publish."
 echo "Fix: move personal values to config.example.json / userConfig, replace real people with"
 echo "fictional ones (example.com emails, 555-01xx phones), gitignore big or private files."
+echo "Transcripts and recordings of real people never ship: delete them, don't just edit them."
 echo "Hits in past commits mean the history is dirty: publish from a fresh repo with a clean copy."
 echo "Approved public strings (like the owner's contact email) go in .sweep-allow, one per line."
 exit 1
