@@ -8,7 +8,7 @@
 It's in our company plugins. Go to Customize > Plugins > Discover, search "{{PLUGIN DISPLAY NAME}}", and turn it on. Then say: "{{TRIGGER PHRASE}}".
 
 **Claude Code**
-Paste this page's link into Claude Code and say "install this".
+Paste this one line into Claude Code: `Set me up: https://github.com/{{GITHUB OWNER}}/{{REPO NAME}}`
 
 **ChatGPT**
 Download `{{SKILL ZIP NAME}}` from this repo's latest Release (Releases, on the right side of this page). In ChatGPT, upload it as a skill: Create > Upload from your computer. Don't unzip it. Your workspace admin has to have Skills turned on.

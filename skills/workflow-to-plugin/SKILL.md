@@ -22,14 +22,45 @@ without it creates support burden that lands on them later.
 This kit's scripts live in its plugin root, two folders up from this skill's base directory
 (`<kit>/scripts/`). Templates live in this skill's `templates/` folder.
 
+## Understand first, then ask as little as possible
+
+The person on the other end is often not technical and wants this done, not a quiz. So read
+before you ask. Go through every piece of context you can reach: this conversation, the
+user's CLAUDE.md and memory files, their skills folder (`~/.claude/skills/`, or
+`$CLAUDE_CONFIG_DIR/skills/` when that is set), the current project and its git remote, and
+their GitHub account and orgs (`gh api user`, `gh api user/orgs`). From that, work out which
+workflow to package, who it's for, what in it is personal, which words must never ship, and
+what a correct output looks like.
+
+Then ask only what that context can't answer, one question at a time, each with your
+recommended answer first. If you can make a reasonable call, make it, say it in one line, and
+list it in the Step 7 preview where the user can change it. A question is worth asking only
+when a wrong guess would change what gets built or who can see it:
+
+- **Which workflow?** Ask only when more than one is plausible. If one clearly fits, say
+  "I'll package X" and go on. It must be one they've already used for real.
+- **Who's it for?** Ask only if they haven't said and the context doesn't settle it. It picks
+  private or public, so never guess public.
+- **The publish OK** (Step 7) is the one question you always ask. Nothing goes online
+  without it.
+
+Everything else goes in the Step 7 preview instead of a question: the owner (their GitHub
+account), the repo name, the pass/fail checks (drafted from the workflow), the never-ship
+words you found, and an ONBOARDING.md for non-technical readers with the no-admin install
+fallback. Detect instead of asking: whether the workflow is already packaged (its files), and
+whether it's a copy of someone else's public repo (its git remote's owner versus their GitHub
+account). Stop and ask when something blocks the run: no GitHub account, a workflow that has
+never run, a sweep FAIL that needs the owner's call, or a remote owned by someone else.
+
 ## Pre-flight: GitHub access (always run this first)
 
 Packaging ends at GitHub, so confirm access before any other work. Discovering a missing
 login at publish time wastes the whole session. Assume the user may be brand new to all of
 this; do every step yourself and narrate in plain English. Run the ladder top to bottom:
 
-1. **Check:** run `gh auth status`. Signed in → name the account and confirm it's the user's
-   own (not a coworker's or a shared login), then move on to Step 0.
+1. **Check:** run `gh auth status`. Signed in → name the account in one line ("You're signed
+   in to GitHub as X"), then move on to Step 0. Stop and ask only if it looks like a
+   coworker's or a shared login.
 2. **Installed but not signed in** → run `gh auth login` (browser flow) and guide them
    through the clicks. They sign in with their OWN account.
 3. **`gh` not installed** → install it yourself. If the machine has no admin rights, never
@@ -55,10 +86,10 @@ run it together first, then package. If a real run would touch live money, custo
 production systems, the owner's confirmation that it has run, plus a dry run on fictional
 data, counts instead.
 
-Confirm the admission items in one short exchange: who owns it, what a pass/fail check on its
-output looks like, and who it's for. Ask the audience question in these words: **"Is this for
-teammates, for everyone at your company, for anyone in public, or for paying clients?"** The
-answer picks the lane:
+The admission items don't need questions: the owner is the user's GitHub account, and the
+pass/fail checks are drafted in Step 3. Both go in the Step 7 preview. The audience picks the
+lane. When the context doesn't already settle it, ask in these words: **"Is this for
+teammates, for everyone at your company, for anyone in public, or for paying clients?"**
 
 | Answer | Lane | Repo | Sweep mode |
 |---|---|---|---|
@@ -67,19 +98,21 @@ answer picks the lane:
 | Everyone at my company | **company lane**: read `references/company-lane.md` now | private, in the company GitHub org | `--for team` |
 | Paying clients | **client lane**: read `references/client-lane.md` now | always private | `--for client` |
 
-For teammates or the public, also ask: technical or not, and do their machines have admin
-rights? That shapes the ONBOARDING.md. Clients use claude.ai, not Claude Code or GitHub, and
-only skills transfer there; the client lane covers what that rules out. "Everyone at my
-company" means one GitHub link plus the company's Claude plugin catalog; the company lane says
-who the link reaches and how people without GitHub still get it.
+For teammates or the public, don't ask whether readers are technical or have admin rights:
+write ONBOARDING.md for non-technical readers and include the no-admin fallback, which works
+for everyone. Clients use claude.ai, not Claude Code or GitHub, and only skills transfer
+there; the client lane covers what that rules out. "Everyone at my company" means one GitHub
+link plus the company's Claude plugin catalog; the company lane says who the link reaches and
+how people without GitHub still get it.
 
 **Already packaged?** If the workflow is already a plugin or a shared kit (it has
 `.claude-plugin/`, an ONBOARDING.md, or teammates get it with `git clone`), don't rebuild it.
 Keep its layout and run Steps 1-6 as an audit. Note two facts now, because later steps depend
 on them: where each plugin lives (every `source` in `.claude-plugin/marketplace.json`; older
 kits use `./plugins/<name>`), and how teammates install it (`/plugin install`, or a `git clone`
-folder with a CLAUDE.md). Also ask: **"Is this a copy of someone else's public repo?"** If yes,
-fixes sent back to it are public releases (see the maintenance loop).
+folder with a CLAUDE.md). Also check whether it's a copy of someone else's public repo: compare
+its git remote's owner with the user's GitHub account, and ask only if they differ. If it is a
+copy, fixes sent back to it are public releases (see the maintenance loop).
 
 ## Step 1: Inventory, the engine/personal split, and the never-ship list
 
@@ -99,10 +132,12 @@ different parameters. It is enforced, not advisory: the sweep's never-ship list 
 **Fill the owner's never-ship list now**, while the inventory is fresh. It lives at
 `~/.config/workflow-to-plugin/never-ship.txt`, outside every repo, because it holds the very
 words that must not leak. If it doesn't exist, copy `templates/never-ship.example.txt` there.
-Make it a two-minute job for the owner: search the workflow's files for candidates (company
-and product names, people's names, emails, internal IDs, internal domains, table and field
-names), propose them as one list to confirm, and ask what you missed. The list is reused for
-every future package, so it only gets filled once. The sweep refuses to pass while it's empty.
+Fill it yourself so it costs the owner no question: search the workflow's files and the context
+you read (CLAUDE.md, memory, git config, GitHub orgs) for company and product names, people's
+names, emails, internal IDs, internal domains, and table and field names. Save them, and show
+the list in the Step 7 preview so the owner can add anything you missed; if they do, re-run
+the sweep. The list is reused for every future package, so it only gets filled once. The sweep
+refuses to pass while it's empty.
 
 Recordings are the leak this list can't cover. Guests, callers, and customers in the
 recordings a workflow processed can't be listed ahead of time, and speech-to-text output has one
@@ -227,7 +262,8 @@ and `scripts/check_kit.sh --lane company` until it prints ALL CHECKS GREEN.
 
 Creating the repo and pushing is an external, user-visible action. Re-run the sweep (it must
 be the last check before the push), then show the user what will be published (file list +
-repo name + visibility) and get their approval. Visibility follows Step 0: teammates →
+repo name + visibility, plus each decision you made instead of asking: owner, checks,
+never-ship words, onboarding) and get their approval. Visibility follows Step 0: teammates →
 private, public → public, paying clients → private with no exceptions. Create the repo under
 the user's account or org (`gh repo create`), push, then prove the install path works from
 GitHub itself, not just locally: add the marketplace from the pushed repo URL and install.

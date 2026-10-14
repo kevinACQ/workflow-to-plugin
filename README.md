@@ -5,7 +5,24 @@ skill — into a **Claude Code plugin on GitHub** that anyone can install with t
 commands. Built for business owners and teams: the person installing never touches git or a
 terminal; Claude does all of it.
 
-## Install
+## Set it up: paste one line into Claude Code
+
+```
+Set me up: https://github.com/kevinACQ/workflow-to-plugin
+```
+
+Claude installs the kit, reads what it can about your workflow, asks only what it can't figure
+out, and shows you exactly what will be published before anything goes live.
+
+> **For Claude:** the person who pasted this link wants this kit installed and their first
+> workflow packaged. Do all of it for them. (1) Run
+> `claude plugin marketplace add kevinACQ/workflow-to-plugin`, then
+> `claude plugin install workflow-to-plugin@workflow-to-plugin-marketplace`. If `claude` isn't
+> found, put `"$CLAUDE_CODE_EXECPATH"` in its place. (2) A new plugin's skills only load after
+> a restart, so don't wait: run `claude plugin list --json`, take this plugin's `installPath`,
+> read `<installPath>/ONBOARDING.md` from disk, and carry out the steps in its box.
+
+## Install by hand
 
 In Claude Code, run:
 
@@ -16,8 +33,8 @@ In Claude Code, run:
 
 Then just say: **"package my workflow"**.
 
-Non-technical? Open [ONBOARDING.md](ONBOARDING.md) and paste the block into Claude — it does
-everything for you.
+Non-technical? Use the one line above. [ONBOARDING.md](ONBOARDING.md) has the same setup as
+one block to paste, if you'd rather.
 
 ## What it does
 
