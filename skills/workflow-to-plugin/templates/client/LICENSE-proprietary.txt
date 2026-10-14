@@ -1,0 +1,8 @@
+Copyright (c) {{YEAR}} {{YOUR NAME OR COMPANY}}. All rights reserved.
+
+These skills, prompts, and guides are licensed, not sold, to the client named in the
+purchase agreement, for use inside that client's own business. You may not copy, share,
+resell, publish, or redistribute them, in whole or in part, without written permission
+from {{YOUR NAME OR COMPANY}}.
+
+Questions: {{SUPPORT CONTACT}}

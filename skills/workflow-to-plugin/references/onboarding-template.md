@@ -28,22 +28,36 @@ copy its shape, not its content.
 
 Number the steps. Each step is an instruction to Claude, not to the human:
 
-1. **GET THE KIT** — install the plugin. Give the exact commands Claude should relay:
+1. **GET THE KIT**: install the plugin. Give the exact commands Claude should relay:
    `/plugin marketplace add <owner>/<repo>` then `/plugin install <plugin>@<marketplace-name>`.
    Include the auth fallback: if access is refused, run `gh auth login` (browser flow, work
    account); if no account/org access, help them create one and tell them who to ask for an
    org invite. Never proceed on someone else's credentials.
-2. **SET UP MY MACHINE** — run the kit's doctor/self-check script; install ONLY what's missing.
+2. **KEEP IT UPDATED**: third-party marketplaces don't auto-update by default, so without
+   this step the owner's fixes never arrive. Tell Claude to: (a) set `"autoUpdate": true` on
+   `<marketplace-name>`'s entry under `extraKnownMarketplaces` in `~/.claude/settings.json`,
+   keeping everything else in the file (same effect as `/plugin` → Marketplaces → Enable
+   auto-update); (b) check its own environment for `DISABLE_AUTOUPDATER`, `DISABLE_UPDATES`,
+   or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` (the Claude desktop app sets the first one).
+   Any of them turns plugin updates off until `"FORCE_AUTOUPDATE_PLUGINS": "1"` is added under
+   `"env"` in the same file; add it unless the user's company manages these settings;
+   (c) read the file back and show the user the `autoUpdate` line. That confirms the setting,
+   not that an update has arrived, so say it that way. If a permission check stops the edit,
+   Claude walks the user through the clicks instead (`/plugin` → Marketplaces → select
+   `<marketplace-name>` → Enable auto-update). If any part can't be done or confirmed,
+   Claude says plainly: "Updates won't arrive on their own. Once a month, say *update my
+   plugins* and I'll run `claude plugin update <plugin>@<marketplace-name>` for you."
+3. **SET UP MY MACHINE**: run the kit's doctor/self-check script; install ONLY what's missing.
    Include the no-admin fallback if the audience may lack admin rights: standalone binaries
    into `~/bin` (on PATH), `pip install --user`, never Homebrew or installers that prompt for
    an admin password.
-3. **HOW I'LL USE IT** — the plain-English invocation ("I'll just say X and you run it").
-4. **KEYS** (only if the workflow needs any) — walk the user click-by-click through getting
+4. **HOW I'LL USE IT**: the plain-English invocation ("I'll just say X and you run it").
+5. **KEYS** (only if the workflow needs any): walk the user click-by-click through getting
    their OWN free/paid key, then save it into the kit's gitignored keys file (copied from the
    repo's `*.example` template). Offer the keyless fallback if one exists.
-5. **PERSONALIZE** (if the workflow has profiles/config) — interview ONE question at a time;
+6. **PERSONALIZE** (if the workflow has profiles/config): interview ONE question at a time;
    apply answers to the kit's own config/profile mechanism, never by editing the shared engine.
-6. **TEST RUN** — do one real run end-to-end, run the kit's pass/fail checks on the output,
+7. **TEST RUN**: do one real run end-to-end, run the kit's pass/fail checks on the output,
    show the result, and iterate until the user is happy.
 
 Close the block with the standing instruction: "Throughout: be patient, assume I've never used

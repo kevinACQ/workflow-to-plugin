@@ -33,6 +33,21 @@ else
   fail "Claude Code CLI (claude)" "install Claude Code from https://claude.com/claude-code — needed for 'claude plugin validate'"
 fi
 
+# gitleaks powers the publish gate (scripts/sweep.sh). ~/bin counts even if it's not on PATH.
+gl="$(command -v gitleaks 2>/dev/null || true)"
+[ -z "$gl" ] && [ -x "$HOME/bin/gitleaks" ] && gl="$HOME/bin/gitleaks"
+if [ -n "$gl" ]; then
+  pass "gitleaks $("$gl" version 2>/dev/null | head -1) (secret scanner for the publish gate)"
+else
+  fail "gitleaks (secret scanner the publish gate needs)" "no admin needed: download the release for this computer from https://github.com/gitleaks/gitleaks/releases (e.g. gh release download -R gitleaks/gitleaks -p '*darwin_arm64.tar.gz'), unpack it, and put the gitleaks file in ~/bin"
+fi
+
+if command -v zip >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
+  pass "zip and unzip (client kits)"
+else
+  fail "zip / unzip (needed to build client kits)" "macOS has them built in; on Linux install your OS's zip and unzip packages"
+fi
+
 echo "------------------------"
 if [ "$missing" -eq 0 ]; then
   echo "READY — everything this kit needs is present."

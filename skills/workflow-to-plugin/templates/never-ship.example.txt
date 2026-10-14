@@ -1,0 +1,30 @@
+# NEVER-SHIP LIST: words that must never appear in anything you publish or send to clients.
+#
+# Keep the real file OUTSIDE every repo: ~/.config/workflow-to-plugin/never-ship.txt
+# It holds the exact words that must not leak, so it is never committed anywhere.
+# scripts/sweep.sh refuses to pass while this list is missing or empty.
+#
+# One entry per line, matched as a whole word in any capitalization. Multi-word names also
+# match their slug forms (Jane Doe also catches jane-doe, jane_doe, janedoe).
+# Lines starting with # are notes. Lines starting with re: are patterns, for example
+#   re:cus_[A-Za-z0-9]{14}
+#
+# Keys and passwords don't belong here: gitleaks (sweep check 1) already catches them.
+# Pattern hits print only their first 4 characters, but the list itself is plain text.
+#
+# When unsure, add it. A false alarm costs one line in the repo's .sweep-allow file.
+# A leak can't be taken back.
+
+# 1. Company and brand names: yours, sub-brands, program and product code names
+
+# 2. Staff names (first and last; a first name alone only if it's unusual)
+
+# 3. Customer, client, and member names, especially any that appear in test files
+
+# 4. Internal IDs: CRM portal or account IDs, workspace IDs, chat team IDs
+
+# 5. Internal domains and hostnames: your company domain, intranet, staging hosts
+
+# 6. Database, table, and field names from internal systems
+
+# 7. Anything else someone inside the company would recognize as "ours"

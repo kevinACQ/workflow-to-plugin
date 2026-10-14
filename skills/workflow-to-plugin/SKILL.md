@@ -1,75 +1,98 @@
 ---
 name: workflow-to-plugin
-description: Package any workflow the user has built — skills, scripts, slash commands, or a process proven in conversation — into a Claude Code plugin repo on GitHub that anyone can install with two slash commands (/plugin marketplace add + /plugin install). Use whenever the user wants to share or distribute a workflow — "package my workflow", "turn this into a plugin", "make this installable", "share this with my team", "publish this so others can use it", "people keep asking how I do this" — or when a team workflow catalog needs a new entry. Handles the full path — inventory → plugin scaffold with self-marketplace → paste-into-Claude ONBOARDING.md → pass/fail checks → secret sweep → local validation → publish → install verification. NOT for authoring a new personal skill (use skill-creator) or for installing someone else's existing plugin.
+description: Package any workflow the user has built (skills, scripts, slash commands, or a process proven in conversation) into a Claude Code plugin repo on GitHub that anyone can install with two slash commands, or into a private client kit of claude.ai skill zips for paying clients. Use whenever the user wants to share, distribute, or sell a workflow: "package my workflow", "turn this into a plugin", "make this installable", "share this with my team", "publish this so others can use it", "package this for my clients", "people keep asking how I do this", or when a team workflow catalog needs a new entry. Handles the full path: inventory, plugin scaffold with self-marketplace, paste-into-Claude ONBOARDING.md, pass/fail checks, a scripted leak sweep that blocks publishing, validation, publish, and install verification. NOT for authoring a new personal skill (use skill-creator) or for installing someone else's existing plugin.
 ---
 
 # Workflow → Plugin
 
-One person figures out a great workflow; packaging it means everyone else gets it for free —
-and because installs point at one GitHub repo, every fix the owner merges reaches every
-teammate on their next update. The alternative is workflows dying on one laptop and being
-re-explained forever. The human never touches git; you do all of it.
+One person figures out a great workflow; packaging it means everyone else gets it for free.
+Because installs point at one GitHub repo, every fix the owner merges reaches every teammate
+on their next update. The alternative is workflows dying on one laptop and being re-explained
+forever. The human never touches git; you do all of it.
 
-**Price of admission — a packaged workflow ships with all three, no exceptions:**
-1. An `ONBOARDING.md` a non-technical person can paste into Claude — Claude does the rest.
+**Price of admission. A packaged workflow ships with all three, no exceptions:**
+1. An `ONBOARDING.md` a non-technical person can paste into Claude. Claude does the rest.
 2. Its own pass/fail checks, so output is known-good before a human reviews it. A workflow
    without checks is a rumor.
 3. A named owner, so bugs and improvements have somewhere to go (that repo's Issues page).
 
-If the user can't or won't supply one of the three, say what's missing and stop — shipping
+If the user can't or won't supply one of the three, say what's missing and stop. Shipping
 without it creates support burden that lands on them later.
 
-## Pre-flight — GitHub access (always run this first)
+This kit's scripts live in its plugin root, two folders up from this skill's base directory
+(`<kit>/scripts/`). Templates live in this skill's `templates/` folder.
 
-Packaging ends at GitHub, so confirm access before any other work — discovering a missing
+## Pre-flight: GitHub access (always run this first)
+
+Packaging ends at GitHub, so confirm access before any other work. Discovering a missing
 login at publish time wastes the whole session. Assume the user may be brand new to all of
 this; do every step yourself and narrate in plain English. Run the ladder top to bottom:
 
-1. **Check:** run `gh auth status`. Signed in → say so in one line and move on to Step 0.
+1. **Check:** run `gh auth status`. Signed in → name the account and confirm it's the user's
+   own (not a coworker's or a shared login), then move on to Step 0.
 2. **Installed but not signed in** → run `gh auth login` (browser flow) and guide them
    through the clicks. They sign in with their OWN account.
 3. **`gh` not installed** → install it yourself. If the machine has no admin rights, never
-   use Homebrew or installers that ask for a password — download the standalone `gh` release
+   use Homebrew or installers that ask for a password. Download the standalone `gh` release
    binary into `~/bin` and make sure `~/bin` is on PATH.
 4. **No GitHub account at all** → walk them through creating a free one, click by click
    (github.com → Sign up → their own email). Then return to rung 2.
 
-Never proceed on someone else's credentials — publishing THEIR workflow requires THEIR
-account, and a borrowed login means the wrong person owns the repo, the issues, and the
-update keys forever. If this kit's doctor script is available (`scripts/doctor.sh` in the
-plugin folder), run it after the ladder and loop until it prints READY — it also verifies
-git and the Claude Code CLI.
+Never proceed on someone else's credentials. Publishing THEIR workflow requires THEIR
+account; a borrowed login means the wrong person owns the repo, the issues, and the update
+keys forever. Then run `<kit>/scripts/doctor.sh` and loop until it prints READY. It also
+verifies git, the Claude Code CLI, gitleaks (the publish gate's secret scanner), and zip.
 
-## Step 0 — Identify and qualify the workflow
+## Step 0: Identify and qualify the workflow
 
 Find what's actually being packaged: an existing skill directory, a set of scripts, or a
 process demonstrated earlier in this conversation (extract the tools used, the step sequence,
-and the corrections the user made along the way).
+and the corrections the user made along the way). Never invent steps that didn't happen.
 
 Qualify it before building anything: the workflow must have been run successfully at least
 once for real. Packaging an unvalidated workflow distributes a guess. If it hasn't been run,
-run it together first, then package.
+run it together first, then package. If a real run would touch live money, customers, or
+production systems, the owner's confirmation that it has run, plus a dry run on fictional
+data, counts instead.
 
-Confirm the three admission items with the user in one short exchange: who owns it, what a
-pass/fail check on its output looks like, and who the intended audience is (technical
-teammates? non-technical? Do their machines have admin rights?). The audience answer shapes
-the ONBOARDING.md.
+Confirm the admission items in one short exchange: who owns it, what a pass/fail check on its
+output looks like, and who it's for. Ask the audience question in these words: **"Is this for
+teammates, for anyone in public, or for paying clients?"** The answer picks the lane:
 
-## Step 1 — Inventory
+| Answer | Lane | Repo | Sweep mode |
+|---|---|---|---|
+| Teammates | standard (Steps 1-8) | private | `--for team` |
+| Anyone in public | standard (Steps 1-8) | public | `--for public` |
+| Paying clients | **client lane**: read `references/client-lane.md` now | always private | `--for client` |
+
+For teammates or the public, also ask: technical or not, and do their machines have admin
+rights? That shapes the ONBOARDING.md. Clients use claude.ai, not Claude Code or GitHub, and
+only skills transfer there; the client lane covers what that rules out.
+
+## Step 1: Inventory, the engine/personal split, and the never-ship list
 
 List everything the workflow needs: files, scripts, skills/commands, external tools (ffmpeg,
 CLIs), API keys, and config. Then separate two categories:
 
-- **Engine** — the generic method, same for every user. This goes in the repo.
-- **Personalization** — names, brand assets, machine paths, accounts, keys. This must NOT be
-  hardcoded in the engine. Move it to a config/profile mechanism (a `profiles/` dir, a
-  `config.json`, or the plugin's `userConfig` prompt) and a gitignored keys file with a
-  committed `*.example` template.
+- **Engine:** the generic method, same for every user. This goes in the repo.
+- **Personalization:** names, brand assets, machine paths, accounts, IDs, keys, and "the
+  owner prefers X" rules. Never hardcoded in the engine. Move it to `config.example.json`
+  (committed, placeholder values) plus a gitignored `config.json`, or to the plugin's
+  `userConfig` prompt; keys go in a gitignored keys file with a committed `*.example` template.
 
-This split is what lets teammates adopt the workflow without forking it: a workflow is a
-method call — same procedure, different parameters.
+This split is what lets others adopt the workflow without forking it: same procedure,
+different parameters. It is enforced, not advisory: the sweep's never-ship list runs over
+`skills/` and every other file that ships.
 
-## Step 2 — Scaffold the plugin repo
+**Fill the owner's never-ship list now**, while the inventory is fresh. It lives at
+`~/.config/workflow-to-plugin/never-ship.txt`, outside every repo, because it holds the very
+words that must not leak. If it doesn't exist, copy `templates/never-ship.example.txt` there.
+Make it a two-minute job for the owner: search the workflow's files for candidates (company
+and product names, people's names, emails, internal IDs, internal domains, table and field
+names), propose them as one list to confirm, and ask what you missed. The list is reused for
+every future package, so it only gets filled once. The sweep refuses to pass while it's empty.
+
+## Step 2: Scaffold the plugin repo
 
 Read `references/plugin-spec.md` for the verified format, exact JSON schemas, and commands.
 The default shape: one repo that is **both the plugin and its own marketplace**
@@ -79,79 +102,128 @@ capability its own SKILL.md, namespaced `/plugin-name:skill-name` after install)
 scripts in `scripts/` or `bin/`; state that must survive updates uses `${CLAUDE_PLUGIN_DATA}`,
 never the install dir.
 
-Build in a scratch directory first, not the user's project.
+Build in a scratch directory first, not the user's project, and run `git init` there right
+away: the sweep uses git to know exactly what will be published. Client lane: also copy the
+scripts and templates listed in `references/client-lane.md`.
 
-## Step 3 — Add the pass/fail checks
+## Step 3: Add the pass/fail checks
 
 Two layers, both required:
 
-- **Doctor** — a self-check script (`scripts/doctor.*`) that verifies dependencies and config
+- **Doctor:** a self-check script (`scripts/doctor.*`) that verifies dependencies and config
   and prints a clear READY / what's-missing report. This is the onboarding gate: setup loops
   until doctor passes.
-- **Output checks** — objective assertions on the workflow's actual output (files exist,
+- **Output checks:** objective assertions on the workflow's actual output (files exist,
   format is right, domain rules hold), runnable on demand. If the workflow already has an
-  eval harness, wire it in; if not, write the 3–10 checks that would catch the failures the
-  user has actually seen.
+  eval harness, wire it in; if not, write the 3-10 checks that would catch the failures the
+  user has actually seen. Test fixtures use fictional people only: `example.com` or `.test`
+  emails and 555-01xx phone numbers. The sweep fails anything else.
 
-The checks run before any human reviews output — that's what makes the workflow trustworthy
+The checks run before any human reviews output. That's what makes the workflow trustworthy
 when the owner isn't in the room.
 
-## Step 4 — Write ONBOARDING.md
+## Step 4: Write ONBOARDING.md
 
 Read `references/onboarding-template.md` and follow that proven shape: promise → 3 human
-steps → one self-contained copy-paste block (written in the user's first person, ending in a
-doctor-gated setup, a personalization interview, and a verified test run) → day-to-day usage
-phrases → "file an issue about this" feedback line → owner line. If the audience may lack
-admin rights, the no-admin fallback (standalone binaries to `~/bin`, `pip install --user`)
-goes in the block — it's the difference between onboarding working and stalling on a password
-prompt.
+steps → one self-contained copy-paste block (written in the user's first person: install,
+turn on updates, doctor-gated setup, personalization interview, verified test run) →
+day-to-day usage phrases → "file an issue about this" feedback line → owner line. If the
+audience may lack admin rights, the no-admin fallback (standalone binaries to `~/bin`,
+`pip install --user`) goes in the block.
 
-## Step 5 — Secret sweep (adversarial, before anything is pushed)
+The "turn on updates" step tells the installer's Claude to edit `~/.claude/settings.json`, so
+a permission check may stop it, or stop you from writing it. That's expected, not a reason to
+route around it: tell the user, and use the click path instead (`/plugin` → Marketplaces →
+select the marketplace → Enable auto-update).
 
-Review every file as an attacker/auditor would, not as the author. The five things that have
-actually been caught in first-push audits — assume this repo has them too:
+Client lane: clients never see ONBOARDING.md (it's for the owner's team). Their front door is
+`client/INSTALL-PROMPT.txt` plus the PDF guide, built from `templates/client/`.
 
-1. Keys, tokens, or credentials (including in history, examples, and notebooks)
-2. Personal data (real names, emails, phone numbers in fixtures or configs)
-3. Customer content (transcripts, exports, member data used as test files)
-4. Machine-specific absolute paths in executing code
-5. Gigabyte-scale artifacts (renders, models, node_modules)
+## Step 5: The sweep (a hard gate before anything leaves the machine)
 
-Fix by relocating to the personalization layer, replacing with fictional fixtures, or
-gitignoring — never by hoping. If anything sensitive was ever committed, the history is dirty:
-start the repo from a clean copy rather than trying to scrub it.
+Run the publish gate with the Step 0 audience:
 
-## Step 6 — Validate locally
+```bash
+bash <kit>/scripts/sweep.sh --for <team|public|client> <repo-dir>
+```
 
-Before publishing: `claude plugin validate <repo-dir> --strict` must pass, then smoke-test
-with `claude --plugin-dir <repo-dir>` — confirm the skills load under the plugin namespace and
-the doctor script runs. Fix and re-validate until clean. Never publish a plugin you haven't
-loaded.
+It checks everything the audience can see (current files, every past commit, commit
+messages, file names, and for public repos the commit author emails) for: secrets
+(gitleaks), never-ship words, real-looking emails and phone numbers, absolute machine paths,
+and files over 10 MB. Nothing is pushed, zipped, or uploaded until it prints `SWEEP: PASS`.
 
-## Step 7 — Publish (needs the user's explicit OK)
+- **A FAIL is a hard stop, not a judgment call.** Fix the cause: move the value to the
+  personalization layer, replace real people with fictional ones, or gitignore the file.
+  Never shorten the never-ship list to get a pass.
+- **A string the owner deliberately wants visible** (their public contact email, the brand
+  name inside a client kit) goes in the repo's `.sweep-allow`, one per line, only after the
+  owner approves that exact line.
+- **Hits "in past commit"** mean the history is dirty. Publish from a fresh repo with a clean
+  copy instead of scrubbing history.
+- **A real key or password that ever sat in the workflow's files or history** gets rotated:
+  tell the owner to make a new one and revoke the old one, even if it was never pushed. Leave
+  their original folder as it is; never publish from it.
+- **Binary files** (PDFs, images) are listed, not text-scanned. Open each one once, and keep
+  every shipped PDF's source text in the repo so the sweep can read it.
+- **If the sweep can't run** (gitleaks missing, not a git repo), fix that. Never skip the gate.
 
-Creating the repo and pushing is an external, user-visible action — show the user what will be
-published (file list + repo name/visibility) and get their approval first. Ask whether the
-repo is **private** (team/company workflows — the safe default) or **public** (sharing with
-the world — only after the Step 5 sweep is clean), then create it under the user's account or
-org (`gh repo create`). Push, then prove the
-install path works from GitHub itself, not just locally: add the marketplace from the pushed
-repo URL and install. Report with receipts — repo URL and the install output — never on faith.
+## Step 6: Validate locally (both paths)
 
-## Step 8 — Hand back the share kit
+Both commands must pass:
 
-Give the user, in one copyable block: the two install commands, a one-paragraph announcement
-("what it does / say this to Claude / where bugs go"), and — if their team keeps a workflow
-catalog — a ready-to-submit catalog row and an offer to open that PR. Onboarding a teammate
-later = send them ONBOARDING.md, nothing else.
+```bash
+claude plugin validate <repo-dir> --strict                              # marketplace.json
+claude plugin validate <repo-dir>/.claude-plugin/plugin.json --strict   # plugin.json + every SKILL.md
+```
+
+On a repo that is both plugin and marketplace (the default shape), the first command checks
+only marketplace.json: a skill with no description still passes it. The second command is
+the one that checks the skills. Then smoke-test with `claude --plugin-dir <repo-dir>`: confirm
+the skills load under the plugin namespace and the doctor script runs. Fix and re-validate
+until clean. Never publish a plugin you haven't loaded.
+
+Client lane: also run `scripts/build_client_zips.sh` then `scripts/check_kit.sh` until it
+prints ALL CHECKS GREEN (see `references/client-lane.md` for the allowed pre-upload warnings).
+
+## Step 7: Publish (needs the user's explicit OK)
+
+Creating the repo and pushing is an external, user-visible action. Re-run the sweep (it must
+be the last check before the push), then show the user what will be published (file list +
+repo name + visibility) and get their approval. Visibility follows Step 0: teammates →
+private, public → public, paying clients → private with no exceptions. Create the repo under
+the user's account or org (`gh repo create`), push, then prove the install path works from
+GitHub itself, not just locally: add the marketplace from the pushed repo URL and install.
+Report with receipts (repo URL and the install output), never on faith.
+
+**Versions:** `plugin.json` always carries a `version` (strict validation fails without it),
+and every release bumps it. Claude Code only updates installers when the version string
+changes, so a release that keeps the old number never reaches anyone, even with auto-update on.
+
+Client lane: after the push, follow `references/client-lane.md` steps 7-9 (check 9 confirms
+the repo is private, the owner tests like a client, then hand-off).
+
+## Step 8: Hand back the share kit
+
+Teammates or public: give the user, in one copyable block, the two install commands, a
+one-paragraph announcement ("what it does / say this to Claude / where bugs go"), and, if
+their team keeps a workflow catalog, a ready-to-submit catalog row and an offer to open that
+PR. Onboarding someone later = send them ONBOARDING.md, nothing else.
+
+Paying clients: give the user the filled `client/INSTALL-PROMPT.txt` text in one copyable
+block. That text is everything a client receives.
 
 ## Maintenance loop (tell the owner how this works)
 
 - Users report bugs by telling Claude "file an issue about this" → issue lands on the repo.
-- The owner fixes and merges; `/plugin update` (or auto-update) carries it to every installer.
+- The owner fixes, bumps the version, and merges. Installers get it automatically only if
+  auto-update is on for the marketplace (off by default for every non-Anthropic marketplace),
+  which is why ONBOARDING.md turns it on. Otherwise they run
+  `claude plugin update <plugin>@<marketplace>` or `/plugin` → Installed → Update now.
+- Client kits: rebuild, check, and upload each changed zip as a new version of the SAME file,
+  so links already sent keep working (`references/client-lane.md`).
 - Improvements from users arrive as PRs; profiles/configs let people personalize without
-  forking the engine — if someone edits the engine to encode a personal preference, that's
-  the signal a profile mechanism is missing.
+  forking the engine. If someone edits the engine to encode a personal preference, that's
+  the signal a config option is missing.
 
 ## Pairs with
 

@@ -1,8 +1,10 @@
 # Claude Code plugin format — verified reference
 
 Verified against code.claude.com/docs (plugins-reference.md, plugins.md, plugin-marketplaces.md,
-discover-plugins.md), July 2026. If a command below errors unexpectedly, re-check those docs —
-the format evolves.
+discover-plugins.md), July 2026; validation and update sections re-verified October 2026 on
+Claude Code 2.1.280 (docs: plugins/install, plugins/loading, env-vars). If a command below
+errors unexpectedly, re-check those docs: the format evolves. `scripts/selftest.sh` is the
+alarm for spec changes.
 
 ## The standard repo layout (plugin + its own marketplace in one repo)
 
@@ -21,6 +23,8 @@ my-workflow/
 ├── ONBOARDING.md            # the paste-into-Claude front door
 ├── README.md                # what it does, install one-liner, owner
 ├── keys.env.example         # template for user keys (real keys file gitignored)
+├── config.example.json      # placeholder personal settings (real config.json gitignored)
+├── .sweep-allow             # optional: strings the owner approved to appear (see sweep.sh)
 └── .gitignore
 ```
 
@@ -45,8 +49,9 @@ Recommended:
 }
 ```
 
-- Omit `version` during active development (each git commit acts as the version); set and bump
-  it once teammates depend on stable releases.
+- Always set `version` (start at `1.0.0`): `claude plugin validate --strict` fails without it
+  (verified on Claude Code 2.1.280). Bump it on every release; installers only update when the
+  string changes.
 - `skills`/`commands`/`agents`/`hooks`/`mcpServers` fields override default component paths —
   only needed for non-standard layouts.
 - `userConfig` prompts the user for values at enable time; reference as `${user_config.KEY}` in
@@ -91,11 +96,20 @@ Private repos: install uses the user's own git credentials — teammates need re
 
 ## Validate and test locally BEFORE pushing
 
+Run BOTH validation commands. `--strict` turns warnings (like a skill with no description)
+into failures:
+
 ```bash
-claude plugin validate ./my-workflow            # checks plugin.json, SKILL.md frontmatter, hooks.json
-claude plugin validate ./my-workflow --strict   # warnings become errors
-claude --plugin-dir ./my-workflow               # load into a live session without installing
+claude plugin validate ./my-workflow --strict                              # marketplace.json only
+claude plugin validate ./my-workflow/.claude-plugin/plugin.json --strict   # plugin.json, every SKILL.md, hooks.json
+claude --plugin-dir ./my-workflow                                          # load into a live session without installing
 ```
+
+Why both: when a repo has `.claude-plugin/marketplace.json` (the default shape here), pointing
+`validate` at the repo folder validates the marketplace manifest and stops. It never opens the
+skills, so a skill with no description prints "Validation passed". Pointing it at
+`plugin.json` validates the plugin and each SKILL.md. Tested on Claude Code 2.1.280;
+`scripts/selftest.sh` keeps a deliberately broken sample that must fail.
 
 Inside a test session, `/reload-plugins` picks up edits without restarting.
 
@@ -105,9 +119,30 @@ Inside a test session, `/reload-plugins` picks up edits without restarting.
 - `${CLAUDE_PLUGIN_DATA}` — persistent per-plugin dir (`~/.claude/plugins/data/<id>/`); use for
   caches, downloaded models, state that must survive updates.
 - Never hardcode absolute machine paths in executing code — that's a top secret-sweep finding.
+- Both variables are filled in inside SKILL.md text (and hook/MCP configs), not in a plain Bash
+  shell. So any ONBOARDING step that saves per-user files (config, keys) goes through the
+  plugin's own skill, which shows the real path, never a bare `$CLAUDE_PLUGIN_DATA` in a shell
+  command (observed in October 2026 eval runs).
 
 ## Updates
 
-Owner pushes to the repo → users get them via `/plugin update <name>` (or background
-auto-update + a `/reload-plugins` notice). This is why fixes must be merged upstream, not
-patched locally: one merge updates every teammate.
+Owner pushes to the repo → installers get it on their next update. Fixes must be merged
+upstream, not patched locally: one merge updates every teammate. Three things decide whether
+"next update" ever happens:
+
+1. **Auto-update is OFF by default** for every marketplace except Anthropic's official ones.
+   Turn it on per marketplace: `/plugin` → Marketplaces → select it → Enable auto-update, or
+   set `"autoUpdate": true` on its entry under `extraKnownMarketplaces` in
+   `~/.claude/settings.json` (adding a marketplace creates that entry; a settings entry wins
+   over the toggle's record in `~/.claude/plugins/known_marketplaces.json`).
+2. **Environment switches turn the whole update pass off:** `DISABLE_AUTOUPDATER`,
+   `DISABLE_UPDATES`, or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`. The Claude desktop app's
+   built-in Claude Code runs with `DISABLE_AUTOUPDATER` set (observed October 2026). Plugin
+   updates come back with `"FORCE_AUTOUPDATE_PLUGINS": "1"` under `"env"` in
+   `~/.claude/settings.json`. Leave company-managed settings alone.
+3. **The `version` string gates every update.** Claude Code only updates installers when
+   plugin.json's `"version"` changes, so bump it on every release. (Leaving it out would make
+   each commit a new version, but strict validation fails without it, so always set it.)
+
+Manual update: `claude plugin update <plugin>@<marketplace>` in a shell, or `/plugin` →
+Installed → the plugin → Update now. Updates apply on the next session or `/reload-plugins`.

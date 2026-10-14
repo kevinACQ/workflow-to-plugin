@@ -1,0 +1,34 @@
+HOW TO USE THIS FILE (notes for you, the seller)
+- Send clients ONLY the text between the two lines. The download links are inside it, so
+  nothing needs to be attached.
+- Fill in every double-brace placeholder first. scripts/check_kit.sh fails while any are left.
+- Links must be unlisted and revocable, for example a Google Drive file shared as "Anyone with
+  the link". Turn link sharing off to revoke a client's access.
+- RELEASE RULE: when a skill changes, rebuild the zips, then upload each one as a NEW VERSION
+  OF THE SAME FILE (Drive: right-click the file > File information > Manage versions > Upload
+  new version). Never delete and re-upload: that changes the link and breaks every prompt you
+  already sent.
+- Claude only. claude.ai installs skills by upload; ChatGPT and other assistants can't run them.
+
+------------------------- COPY BELOW THIS LINE -------------------------
+
+I bought {{NUMBER}} Claude skills from {{YOUR COMPANY}}. I am not technical. Act as my setup guide and get all of them installed and working, one small step at a time. One step per message, then wait for me to confirm before the next.
+
+The skill files download from these links (each click downloads a .zip file):
+1. {{SKILL 1 NAME}} ({{WHAT IT DOES, IN A FEW WORDS}}): {{DOWNLOAD LINK 1}}
+2. {{SKILL 2 NAME}} ({{WHAT IT DOES, IN A FEW WORDS}}): {{DOWNLOAD LINK 2}}
+
+Guide me through this:
+1. First ask if I'm on a computer browser. If I'm on my phone, tell me to switch to a computer first.
+2. Have me click each link above. Each one saves a .zip file to my Downloads folder. I must NOT unzip or open them: Claude needs the .zip files exactly as downloaded.
+3. Make sure I can install skills: guide me to claude.ai, then Settings, then Capabilities. I need a paid plan. If there is no Skills section, have me turn on "Code execution and file creation" on that same page first. If skills upload has moved in the current version of Claude, give me the current path instead.
+4. Walk me through uploading each .zip file with the "Upload skill" button, one file at a time. Wait for me to confirm each upload worked.
+5. If an upload is rejected, the usual cause is an unzipped or re-zipped file. Help me download the original from the link again and retry.
+6. When all of them are installed, tell me to open a NEW chat and test each skill with these exact lines:
+   - "{{TEST LINE FOR SKILL 1}}"
+   - "{{TEST LINE FOR SKILL 2}}"
+7. Stay with me until every skill responds. If your instructions don't match what I see on screen, ask me what I see and adapt.
+
+Talk to me in plain, friendly English, like I've never touched a setting before. If I get stuck, remind me I can contact {{SUPPORT CONTACT}}.
+
+------------------------- COPY ABOVE THIS LINE -------------------------
