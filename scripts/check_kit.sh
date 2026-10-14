@@ -1,26 +1,31 @@
 #!/usr/bin/env bash
-# check_kit.sh: pass/fail checks on a client kit before anything is sent to a client.
-# Copy into a client kit's scripts/ folder next to build_client_zips.sh and sweep.sh.
+# check_kit.sh: pass/fail checks on a client or company kit before anything is sent out.
+# Copy into the kit's scripts/ folder next to build_client_zips.sh and sweep.sh.
 #
-# Usage: scripts/check_kit.sh [--skills a,b,c] [--prefix Name-Skill-]   (defaults: client/kit.conf)
+# Usage: scripts/check_kit.sh [--skills a,b,c] [--prefix Name-Skill-] [--lane client|company]
+#   (defaults: client/kit.conf, lane client)
 #
-# Checks 1-7: the skills and zips claude.ai will accept, and zips that match their source.
-# Checks 8-10: the client-lane rules (proprietary license, private repo, a filled-in install
-# prompt plus PDF guide). Exits non-zero on any failure.
+# Checks 1-7: the skills and zips claude.ai and ChatGPT will accept, and zips that match their
+# source. Lane client, checks 8-10: proprietary license, private repo, a filled-in install
+# prompt plus PDF guide. Lane company, checks 8-10: a plugin zip claude.ai accepts, private repo,
+# a filled-in "Pick your app" README. Exits non-zero on any failure.
 set -u
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SKILLS=""
 ZIP_PREFIX=""
+LANE=client
 # shellcheck disable=SC1091
 [ -f "$REPO_DIR/client/kit.conf" ] && . "$REPO_DIR/client/kit.conf"
 while [ $# -gt 0 ]; do
   case "$1" in
     --skills) [ $# -ge 2 ] || { echo "--skills needs a value"; exit 2; }; SKILLS="$(printf '%s' "$2" | tr ',' ' ')"; shift 2 ;;
     --prefix) [ $# -ge 2 ] || { echo "--prefix needs a value"; exit 2; }; ZIP_PREFIX="$2"; shift 2 ;;
+    --lane) [ $# -ge 2 ] || { echo "--lane needs client or company"; exit 2; }; LANE="$2"; shift 2 ;;
     *) echo "unknown option: $1"; exit 2 ;;
   esac
 done
+case "$LANE" in client|company) ;; *) echo "--lane must be client or company"; exit 2 ;; esac
 if [ -z "$SKILLS" ]; then
   for d in "$REPO_DIR"/skills/*/; do [ -f "$d/SKILL.md" ] && SKILLS="$SKILLS $(basename "$d")"; done
 fi
@@ -94,6 +99,15 @@ for s in $SKILLS; do
   fi
 done
 
+# 3b. A skill zip ships ONLY its own folder. Paths to the plugin root work in Claude Code plugin
+#     installs but break when the skill is uploaded on its own (claude.ai skills, ChatGPT).
+for s in $SKILLS; do
+  f="$REPO_DIR/skills/$s/SKILL.md"; [ -f "$f" ] || continue
+  if grep -qE 'CLAUDE_PLUGIN_ROOT|\.\./\.\./scripts' "$f"; then
+    warn "3b. $s points outside its own folder (plugin-root path): as an uploaded skill it won't find those files. Keep scripts in skills/$s/scripts/ and call \${CLAUDE_SKILL_DIR}/scripts/..."
+  fi
+done
+
 # 4. No OS junk files in shipped skills
 if find "$REPO_DIR/skills" \( -name '.DS_Store' -o -name '__MACOSX' \) 2>/dev/null | grep -q .; then
   fail "4. junk files (.DS_Store or __MACOSX) under skills/: delete them"
@@ -138,6 +152,24 @@ for s in $SKILLS; do
   fi
 done
 
+if [ "$LANE" = company ]; then
+# 8. Company lane: the plugin zip for claude.ai "Upload plugin" is built and acceptable.
+if [ -d "$REPO_DIR/bin" ]; then
+  fail "8. top-level bin/ folder: claude.ai and Cowork reject the whole plugin. Move it to scripts/"
+fi
+pz="$(ls "$REPO_DIR"/dist/*-plugin.zip 2>/dev/null | head -n 1)"
+if [ -z "$pz" ]; then
+  fail "8. no plugin zip in dist/ (run scripts/build_plugin_zip.sh)"
+else
+  pnames="$(unzip -Z1 "$pz" 2>/dev/null)"
+  if printf '%s\n' "$pnames" | grep -qx '.claude-plugin/plugin.json'; then
+    pass "8. plugin zip has .claude-plugin/plugin.json at its root: dist/$(basename "$pz")"
+  else
+    fail "8. dist/$(basename "$pz") has no .claude-plugin/plugin.json at its root"
+  fi
+  printf '%s\n' "$pnames" | grep -q '^bin/' && fail "8. dist/$(basename "$pz") contains a top-level bin/ folder"
+fi
+else
 # 8. Proprietary license: paid kits are not open source
 lic=""
 for c in LICENSE LICENSE.md LICENSE.txt; do [ -f "$REPO_DIR/$c" ] && lic="$REPO_DIR/$c" && break; done
@@ -151,6 +183,7 @@ elif grep -qi 'all rights reserved' "$lic"; then
   pass "8. LICENSE is proprietary (all rights reserved)"
 else
   fail "8. LICENSE doesn't say 'All rights reserved'"
+fi
 fi
 
 # 9. The repo is private (paid work never goes on public GitHub)
@@ -168,6 +201,23 @@ case "$url" in
   *) warn "9. remote is not GitHub ($url): confirm by hand that it's private" ;;
 esac
 
+if [ "$LANE" = company ]; then
+# 10. Company lane: README opens with a filled-in "Pick your app" block and the install commands.
+r="$REPO_DIR/README.md"
+if [ ! -f "$r" ]; then
+  fail "10. README.md missing (start it from templates/company/README-pick-your-app.md)"
+elif ! grep -q '^## Pick your app' "$r"; then
+  fail "10. README.md has no '## Pick your app' section"
+elif grep -q '{{' "$r"; then
+  fail "10. README.md still has unfilled {{ }} placeholders"
+elif ! grep -q 'claude plugin marketplace add' "$r" || ! grep -q 'claude plugin install' "$r"; then
+  fail "10. README.md is missing the two install commands for Claude Code"
+elif ! grep -qi 'If you are Claude reading this' "$r"; then
+  fail "10. README.md is missing the 'If you are Claude reading this' install block"
+else
+  pass "10. README.md has a filled-in 'Pick your app' block with the install commands"
+fi
+else
 # 10. A filled-in install prompt (one download link per skill) and a PDF guide in client/
 p="$REPO_DIR/client/INSTALL-PROMPT.txt"
 if [ ! -f "$p" ]; then
@@ -183,6 +233,7 @@ if ls "$REPO_DIR"/client/*.pdf > /dev/null 2>&1; then
   pass "10. PDF install guide present in client/"
 else
   fail "10. no PDF install guide in client/ (export client/INSTALL-GUIDE.md to PDF)"
+fi
 fi
 
 echo

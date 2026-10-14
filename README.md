@@ -42,6 +42,11 @@ When you ask Claude to package a workflow, this plugin walks it through the full
 8. **Publish & verify**: create the repo (private or public, your call), push, and prove
    the install actually works from GitHub before declaring done
 
+**Sharing with everyone at your company?** The company lane gives you one GitHub link whose
+README says how to get it in Claude, Claude Code, or ChatGPT, builds the plugin zip for your
+company's Claude catalog, and checks which way into that catalog you have (`company_route.sh`).
+See [references/company-lane.md](skills/workflow-to-plugin/references/company-lane.md).
+
 **Selling to clients?** The client lane builds a private kit instead: one claude.ai upload
 zip per skill, a paste-in install prompt with the download links inside, a PDF guide, a
 proprietary license, and `check_kit.sh` to prove every zip matches its source before release.

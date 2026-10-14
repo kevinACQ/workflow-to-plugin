@@ -1,6 +1,6 @@
 ---
 name: workflow-to-plugin
-description: Package any workflow the user has built (skills, scripts, slash commands, or a process proven in conversation) into a Claude Code plugin repo on GitHub that anyone can install with two slash commands, or into a private client kit of claude.ai skill zips for paying clients. Use whenever the user wants to share, distribute, or sell a workflow: "package my workflow", "turn this into a plugin", "make this installable", "share this with my team", "publish this so others can use it", "package this for my clients", "people keep asking how I do this", or when a team workflow catalog needs a new entry. Handles the full path: inventory, plugin scaffold with self-marketplace, paste-into-Claude ONBOARDING.md, pass/fail checks, a scripted leak sweep that blocks publishing, validation, publish, and install verification. NOT for authoring a new personal skill (use skill-creator) or for installing someone else's existing plugin.
+description: Package any workflow the user has built (skills, scripts, slash commands, or a process proven in conversation) into a Claude Code plugin repo on GitHub that anyone can install with two slash commands, or into a private client kit of claude.ai skill zips for paying clients. Use whenever the user wants to share, distribute, or sell a workflow: "package my workflow", "turn this into a plugin", "make this installable", "share this with my team", "share this with everyone at my company", "publish this so others can use it", "package this for my clients", "people keep asking how I do this", or when a team workflow catalog needs a new entry. Handles the full path: inventory, plugin scaffold with self-marketplace, paste-into-Claude ONBOARDING.md, pass/fail checks, a scripted leak sweep that blocks publishing, validation, publish, and install verification. NOT for authoring a new personal skill (use skill-creator) or for installing someone else's existing plugin.
 ---
 
 # Workflow → Plugin
@@ -57,17 +57,21 @@ data, counts instead.
 
 Confirm the admission items in one short exchange: who owns it, what a pass/fail check on its
 output looks like, and who it's for. Ask the audience question in these words: **"Is this for
-teammates, for anyone in public, or for paying clients?"** The answer picks the lane:
+teammates, for everyone at your company, for anyone in public, or for paying clients?"** The
+answer picks the lane:
 
 | Answer | Lane | Repo | Sweep mode |
 |---|---|---|---|
 | Teammates | standard (Steps 1-8) | private | `--for team` |
 | Anyone in public | standard (Steps 1-8) | public | `--for public` |
+| Everyone at my company | **company lane**: read `references/company-lane.md` now | private, in the company GitHub org | `--for team` |
 | Paying clients | **client lane**: read `references/client-lane.md` now | always private | `--for client` |
 
 For teammates or the public, also ask: technical or not, and do their machines have admin
 rights? That shapes the ONBOARDING.md. Clients use claude.ai, not Claude Code or GitHub, and
-only skills transfer there; the client lane covers what that rules out.
+only skills transfer there; the client lane covers what that rules out. "Everyone at my
+company" means one GitHub link plus the company's Claude plugin catalog; the company lane says
+who the link reaches and how people without GitHub still get it.
 
 **Already packaged?** If the workflow is already a plugin or a shared kit (it has
 `.claude-plugin/`, an ONBOARDING.md, or teammates get it with `git clone`), don't rebuild it.
@@ -158,6 +162,10 @@ if it brought changes."
 Client lane: clients never see ONBOARDING.md (it's for the owner's team). Their front door is
 `client/INSTALL-PROMPT.txt` plus the PDF guide, built from `templates/client/`.
 
+Company lane: the README is the front door. Start it from
+`templates/company/README-pick-your-app.md` ("Pick your app" for Claude, Claude Code, and
+ChatGPT, plus an "If you are Claude reading this" block with the two install commands).
+
 ## Step 5: The sweep (a hard gate before anything leaves the machine)
 
 Run the publish gate with the Step 0 audience:
@@ -212,6 +220,9 @@ doctor script runs. Fix and re-validate until clean. Never publish a plugin you 
 Client lane: also run `scripts/build_client_zips.sh` then `scripts/check_kit.sh` until it
 prints ALL CHECKS GREEN (see `references/client-lane.md` for the allowed pre-upload warnings).
 
+Company lane: also run `scripts/build_client_zips.sh --for team`, `scripts/build_plugin_zip.sh`,
+and `scripts/check_kit.sh --lane company` until it prints ALL CHECKS GREEN.
+
 ## Step 7: Publish (needs the user's explicit OK)
 
 Creating the repo and pushing is an external, user-visible action. Re-run the sweep (it must
@@ -229,6 +240,13 @@ changes, so a release that keeps the old number never reaches anyone, even with 
 Client lane: after the push, follow `references/client-lane.md` steps 7-9 (check 9 confirms
 the repo is private, the owner tests like a client, then hand-off).
 
+Company lane: the repo goes under the company GitHub org (same owner as the company catalog).
+After the push, each of these is its own OK: the GitHub Release with the skill zips, and the
+catalog route that `<kit>/scripts/company_route.sh` picks (A: a catalog pull request; B: upload
+the plugin zip to your own account, test, then Publish to org; C: ask the catalog owner). Never
+click Publish to org before a pilot on your own account: on Team plans it goes live for the
+whole company right after the security scan.
+
 ## Step 8: Hand back the share kit
 
 Teammates or public: give the user, in one copyable block, the two install commands, a
@@ -238,6 +256,10 @@ PR. Onboarding someone later = send them ONBOARDING.md, nothing else.
 
 Paying clients: give the user the filled `client/INSTALL-PROMPT.txt` text in one copyable
 block. That text is everything a client receives.
+
+Everyone at the company: give the user the ONE repo link and a short announcement ("what it
+does / say this / open the link and pick your app / where bugs go"), and say who the link
+reaches (GitHub org members) and how everyone else gets it (the company catalog in Claude).
 
 ## Maintenance loop (tell the owner how this works)
 

@@ -2,7 +2,7 @@
 # build_client_zips.sh: build the zip files paying clients upload to claude.ai, one per skill.
 # Copy this file, check_kit.sh, and sweep.sh into a client kit's scripts/ folder.
 #
-# Usage: scripts/build_client_zips.sh [--skills a,b,c] [--prefix Name-Skill-]
+# Usage: scripts/build_client_zips.sh [--skills a,b,c] [--prefix Name-Skill-] [--for client|team]
 #   Defaults come from client/kit.conf (SKILLS, ZIP_PREFIX); with no config, every folder in
 #   skills/ that has a SKILL.md ships and zips are named dist/<skill>.zip.
 #
@@ -10,11 +10,13 @@
 # claude.ai's "Upload skill" accepts. Only files git would publish go in (tracked or new, never
 # .gitignore'd), so a private config.json inside a skill folder can't ride along.
 # The publish gate runs first: any never-ship word in skills/ or client/ stops the build.
+# The company lane passes --for team (skills for coworkers may name the company).
 set -eu
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SKILLS=""
 ZIP_PREFIX=""
+SWEEP_MODE=client
 # shellcheck disable=SC1091  # owner's own kit config: SKILLS="a b c", ZIP_PREFIX="Name-"
 [ -f "$REPO_DIR/client/kit.conf" ] && . "$REPO_DIR/client/kit.conf"
 
@@ -22,6 +24,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --skills) [ $# -ge 2 ] || { echo "--skills needs a value"; exit 2; }; SKILLS="$(printf '%s' "$2" | tr ',' ' ')"; shift 2 ;;
     --prefix) [ $# -ge 2 ] || { echo "--prefix needs a value"; exit 2; }; ZIP_PREFIX="$2"; shift 2 ;;
+    --for) [ $# -ge 2 ] || { echo "--for needs a value"; exit 2; }; SWEEP_MODE="$2"; shift 2 ;;
     *) echo "unknown option: $1"; exit 2 ;;
   esac
 done
@@ -32,14 +35,14 @@ fi
 [ -n "$SKILLS" ] || { echo "No skills found in skills/. Nothing to build."; exit 1; }
 command -v zip >/dev/null 2>&1 || { echo "zip not found (scripts/doctor.sh checks this)."; exit 1; }
 
-# Gate: never build client zips from a kit that fails the client sweep.
+# Gate: never build zips from a kit that fails the sweep.
 if [ ! -f "$REPO_DIR/scripts/sweep.sh" ]; then
   echo "scripts/sweep.sh is missing. Copy it from the workflow-to-plugin kit; zips are never built without the sweep."
   exit 1
 fi
-if ! bash "$REPO_DIR/scripts/sweep.sh" --for client "$REPO_DIR"; then
+if ! bash "$REPO_DIR/scripts/sweep.sh" --for "$SWEEP_MODE" "$REPO_DIR"; then
   echo
-  echo "BUILD STOPPED: the sweep found something that must not reach clients. Fix it, then re-run."
+  echo "BUILD STOPPED: the sweep found something that must not ship. Fix it, then re-run."
   exit 1
 fi
 echo

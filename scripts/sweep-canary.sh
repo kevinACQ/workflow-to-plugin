@@ -160,6 +160,9 @@ expect "300-row fictional fixture (example.com, 555-01xx) -> PASS" PASS 'SWEEP: 
 d="$(fresh)"; base="$(basename "$d")"; printf 'MODEL = os.path.expanduser("~/Documents/%s/models/face.onnx")\n' "$base" > "$d/skills/hello/run.py"
 expect "home-folder path into the kit's own folder -> PASS + WARN (5b)" PASS '^\[WARN\] 5b\.' public
 
+d="$(fresh)"; printf 'grep -q codec_type=subtitle notes\n' > "$TMP/tool.txt"; (cd "$TMP" && zip -q "$d/dist-tool.zip" tool.txt)
+expect "zip whose text mentions codec_type=subtitle -> no false transcript alarm" PASS 'SWEEP: PASS' public
+
 # --- No false alarms on fictional data, and audience rules behave.
 d="$(fresh)"; printf 'Contact: owner@example.com, tester@shop.test, (312) 555-0142, ~/bin, /Users/you/kit\n' >> "$d/README.md"
 expect "fictional email/phone/path only -> PASS" PASS 'SWEEP: PASS' public

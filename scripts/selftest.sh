@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Workflow → Plugin self-test: proves the recipe this kit teaches still works, and that its
-# safety checks still catch problems. Five parts:
+# safety checks still catch problems. Six parts:
 #   1. A good sample plugin (plugin + self-marketplace + one skill) passes validation on BOTH
 #      paths: the repo folder (checks marketplace.json) and .claude-plugin/plugin.json (checks
 #      the plugin and every SKILL.md). Validating only the repo folder never looks at skills.
@@ -10,6 +10,8 @@
 #   4. The sweep canary (scripts/sweep-canary.sh) catches every planted leak.
 #   5. The client lane (scripts/client-lane-test.sh) builds a sample client kit and catches
 #      stale zips, open-source licenses, unfilled prompts, and never-ship words.
+#   6. The company lane (scripts/company-lane-test.sh) builds a plugin zip claude.ai accepts,
+#      catches a top-level bin/ and an unfilled README, and picks the right catalog route.
 # FAIL on part 1 or 3 usually means the plugin spec changed: re-check
 # skills/workflow-to-plugin/references/plugin-spec.md against https://code.claude.com/docs
 # and file an issue on this repo.
@@ -119,9 +121,17 @@ else
   sed 's/^/         /' "$tmp/client.log"
 fi
 
+# 6. The company lane builds a plugin zip claude.ai accepts and picks the right catalog route.
+if bash "$HERE/company-lane-test.sh" > "$tmp/company.log" 2>&1; then
+  ok "company lane: $(grep '^COMPANY LANE' "$tmp/company.log")"
+else
+  nope "company lane test failed:"
+  sed 's/^/         /' "$tmp/company.log"
+fi
+
 echo "---------------------------"
 if [ "$bad" -eq 0 ]; then
-  echo "SELFTEST: PASS. Valid plugins build, broken skills get caught, the sweep catches leaks, and the client lane works."
+  echo "SELFTEST: PASS. Valid plugins build, broken skills get caught, the sweep catches leaks, and the client and company lanes work."
   exit 0
 fi
 echo "SELFTEST: FAIL. See [FAIL] lines above. Check references/plugin-spec.md and file an issue."

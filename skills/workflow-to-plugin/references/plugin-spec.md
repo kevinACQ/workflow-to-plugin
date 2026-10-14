@@ -18,7 +18,8 @@ my-workflow/
 ├── agents/                  # custom agent definitions (optional)
 ├── hooks/hooks.json         # event handlers (optional)
 ├── .mcp.json                # MCP server configs (optional)
-├── bin/                     # executables added to Bash PATH (optional)
+├── bin/                     # executables on Bash PATH (Claude Code ONLY: a top-level bin/ makes
+│                            #   claude.ai and Cowork reject the whole plugin; prefer scripts/)
 ├── scripts/                 # doctor.py / check scripts (plain files, run via skills)
 ├── ONBOARDING.md            # the paste-into-Claude front door
 ├── README.md                # what it does, install one-liner, owner
@@ -117,6 +118,20 @@ skills, so a skill with no description prints "Validation passed". Pointing it a
 `scripts/selftest.sh` keeps a deliberately broken sample that must fail.
 
 Inside a test session, `/reload-plugins` picks up edits without restarting.
+
+## Company catalogs (claude.ai org marketplaces)
+
+- A company's Claude plugin catalog syncs from a private or internal marketplace repo. Only
+  Owners (and, on Enterprise, roles with library rights) manage it; members get its plugins in
+  Customize > Plugins with no GitHub access of their own.
+- A catalog entry may point at another repo (`"source": {"source": "github", "repo": "org/x"}`),
+  but a PRIVATE plugin repo is accepted only when it has the same owner as the catalog repo.
+- Members without catalog access can upload a plugin zip (Customize > Plugins > Add > Upload
+  plugin; `.claude-plugin/plugin.json` at the zip root or inside one top-level folder) and then
+  Publish to org. Team plans default to publishing without review; Enterprise reviews.
+- Skills uploaded on their own (claude.ai "Upload skill", ChatGPT) ship only the skill folder:
+  reference their scripts as `${CLAUDE_SKILL_DIR}/scripts/<name>`, not the plugin root.
+- Docs: claude.com/docs/plugins/admin, /share, /org-sync, /build (verified October 2026).
 
 ## Paths inside plugin scripts/hooks
 

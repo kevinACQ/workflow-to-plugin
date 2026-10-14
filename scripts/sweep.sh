@@ -416,7 +416,10 @@ while IFS= read -r f; do
   i=$((i + 1)); t="$TMP/x/$i.txt"; lbl="$f (text inside)"
   if ! extract_text "$REPO/$f" > "$t"; then echo "$f: no tool on this computer can read it" >> "$TMP/unread"; continue; fi
   tag() { awk -v p="$lbl" '{ print p ":" $0 }'; }
-  grep -q 'codec_type=subtitle' "$t" && echo "$lbl: has a subtitle track (a transcript)" >> "$TMP/inbin_fail"
+  # Only media files have tracks; in a zip or PDF this text is just text (e.g. this script's own source).
+  case "$(printf '%s' "${f##*.}" | lower)" in
+    mp4|mov|m4v|mp3|m4a|wav|aac) grep -q 'codec_type=subtitle' "$t" && echo "$lbl: has a subtitle track (a transcript)" >> "$TMP/inbin_fail" ;;
+  esac
   [ "$(grep -c -E -e "$TS_RE" "$t")" -ge "$TRANSCRIPT_MIN" ] && echo "$lbl: looks like a transcript" >> "$TMP/inbin_fail"
   { grep -n -o -E -e "$EMAIL_RE" "$t" | tag | prefilter email_ok | collapse | filter_hits email_ok
     grep -n -o -E -e "$PHONE_RE" "$t" | tag | prefilter phone_ok | collapse | filter_hits phone_ok
