@@ -196,9 +196,12 @@ lack admin rights, the no-admin fallback (standalone binaries to `~/bin`,
 README note, ONBOARDING, and the Step 8 share message.
 
 The "turn on updates" step tells the installer's Claude to edit `~/.claude/settings.json`, so
-a permission check may stop it, or stop you from writing it. That's expected, not a reason to
-route around it: tell the user, and use the click path instead (`/plugin` → Marketplaces →
-select the marketplace → Enable auto-update).
+a permission check may stop it, or stop you from writing it. Claude Code always asks before
+its settings file changes, so the box has Claude warn the user first ("A box is about to pop
+up asking to let me change your Claude settings. Click Allow: that turns on automatic
+updates."). A declined pop-up is expected, not a reason to route around it: tell the user,
+and use the click path instead (`/plugin` → Marketplaces → select the marketplace → Enable
+auto-update).
 
 Kits installed with `git clone` (not `/plugin install`) never auto-update: their KEEP IT
 UPDATED step is "run `git pull` in the kit folder at the start of each session, and tell me

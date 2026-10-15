@@ -64,11 +64,13 @@ In this order:
 3. **3 human steps**: (a) get the Claude Code app (claude.com/claude-code, paid plan);
    (b) start a new chat and paste this one line (the `Set me up:` line, in its own fenced
    block); (c) answer its few questions. Include the expectations: Claude may ask permission
-   to run a step (click Allow), and for a private repo it may open the browser once so they
-   sign in to GitHub with their own account.
+   to run a step (click Allow); one of these asks to change their Claude settings, which
+   turns on automatic updates, so they click Allow there too; and for a private repo it may
+   open the browser once so they sign in to GitHub with their own account.
 4. **The fallback sentence**: "If the one line doesn't start the setup, paste the box below
    instead. It's the same setup."
-5. **The copy-paste block**, fenced between "✂️ COPY FROM HERE" and "COPY TO HERE ✂️"
+5. **The copy-paste block**: plain text inside a code block (```), not a quote block, so
+   GitHub shows a copy button. Put it between "✂️ COPY FROM HERE" and "COPY TO HERE ✂️"
    markers (structure below).
 6. **"Once it's set up"**: the plain-English phrases for day-to-day use ("just say *make
    clips from this*"), where outputs land, how to change preferences later, and "to set up
@@ -105,6 +107,10 @@ Then number the steps. Each step is an instruction to Claude, not to the human:
 2. **KEEP IT UPDATED** (don't ask me; do it and tell me in one line). Third-party
    marketplaces don't auto-update by default, so without this step the owner's fixes never
    arrive.
+   - Before you touch the file, warn me in one line, in these words: "A box is about to pop
+     up asking to let me change your Claude settings. Click Allow: that turns on automatic
+     updates." Then make the change. (Claude Code always asks before anything edits its
+     settings file, and a surprise request about settings is the one people decline.)
    - The install wrote this kit into my Claude settings file: `~/.claude/settings.json`, or
      `settings.json` inside `$CLAUDE_CONFIG_DIR` if that is set. In that file, set
      `"autoUpdate": true` on the `{{MARKETPLACE}}` entry under `extraKnownMarketplaces`. Keep

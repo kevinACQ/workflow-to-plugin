@@ -2,7 +2,7 @@
   "name": "workflow-to-plugin",
   "displayName": "Workflow → Plugin",
   "description": "Package any workflow into a Claude Code plugin on GitHub that anyone can set up by pasting one line into Claude Code, with pass/fail checks and a secret sweep built in.",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "author": {"name": "Kevin Gong"},
   "repository": "https://github.com/kevinACQ/workflow-to-plugin",
   "homepage": "https://github.com/kevinACQ/workflow-to-plugin#readme",

@@ -24,8 +24,9 @@ Set me up: https://github.com/kevinACQ/workflow-to-plugin
 asks what it can't figure out, like which workflow or who it's for. It always ends the same
 way: it shows you exactly what will go on GitHub and asks "OK to publish?"
 
-> 💡 Claude may ask permission to run a step: click **Allow**. It may also open your browser
-> once so you can sign in to GitHub with your own account.
+> 💡 Claude may ask permission to run a step: click **Allow**. One of these asks to change
+> your Claude settings. That one turns on automatic updates, so click **Allow** there too.
+> It may also open your browser once so you can sign in to GitHub with your own account.
 
 If the one line doesn't start the setup, paste the box below instead. It's the same setup.
 
@@ -48,6 +49,9 @@ visible to-do list of these steps and check them off as you go.
    - It's a public repo, so no special access is needed.
 
 2) KEEP IT UPDATED (don't ask me; do it and tell me in one line)
+   - Before you touch the file, warn me in one line, in these words: "A box is about to pop
+     up asking to let me change your Claude settings. Click Allow: that turns on automatic
+     updates." Then make the change.
    - The install wrote this kit into my Claude settings file: ~/.claude/settings.json, or
      settings.json inside $CLAUDE_CONFIG_DIR if that is set. In that file, set
      "autoUpdate": true on the "workflow-to-plugin-marketplace" entry under
